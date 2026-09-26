@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Tema Android KLASIK (bukan Compose). Dia hidup di satu celah waktu saja:
+      dari detik kamu menekan ikon app sampai Compose selesai menggambar frame
+      pertamanya. Setelah itu dia tidak terlihat lagi seumur app jalan.
+
+      Celah itu pendek, tapi bukan nol, dan yang mengisinya adalah
+      android:windowBackground. Kalau dibiarkan bawaan, nilainya diambil dari
+      Theme.Material.Light yaitu #FAFAFA (putih pucat). Di mode siang itu
+      kebetulan mirip warna app kita, jadi tidak pernah terasa salah.
+
+      Yang jadi masalah ada di file kembarannya, values-night/themes.xml.
+      Buka file itu: di sanalah kilatan abu-abu yang kamu keluhkan lahir.
+
+      #FFF8F4 di bawah ini salinan LightBackground di ui/theme/Color.kt. Dua
+      tempat satu warna memang tidak ideal, tapi tidak bisa dihindari: XML tidak
+      bisa membaca konstanta Kotlin, dan Compose tidak membaca XML. Kalau suatu
+      hari kamu ganti warna latar di Color.kt, ganti juga di sini. Itu satu
+      satunya utang yang saya tinggalkan di file ini, dan sekarang kamu tahu
+      letaknya.
+
+      CATATAN KECIL YANG MAHAL: di dalam komentar XML, dua tanda hubung
+      berurutan itu HARAM. Bagi XML, dua tanda hubung adalah awal dari penutup
+      komentar, jadi menaruhnya di tengah kalimat bikin aapt2 berhenti dengan
+      "not well-formed (invalid token)". Saya kena sendiri saat menulis file ini,
+      karena di file Kotlin saya biasa memakainya sebagai tanda pisah. Di XML,
+      pakai tanda baca lain.
+    -->
+    <style name="Theme.CalisthenicaCezar" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFF8F4</item>
+    </style>
+</resources>

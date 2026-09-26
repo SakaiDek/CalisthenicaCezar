@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Palang pull-up -->
+    <path
+        android:fillColor="#FFB1D18A"
+        android:pathData="M30,24 H78 V30 H30 Z" />
+
+    <!-- Huruf "C" (Calisthenica) -->
+    <path
+        android:pathData="M64.9,45 A17,17 0 1,0 64.9,71"
+        android:strokeColor="#FFB1D18A"
+        android:strokeWidth="9"
+        android:strokeLineCap="round" />
+
+</vector>

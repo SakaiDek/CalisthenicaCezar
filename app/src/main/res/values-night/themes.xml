@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      DI SINILAH "KILATAN WARNA ABU-ABU" ITU LAHIR. Ini biang keroknya, dan
+      obatnya cuma satu baris.
+
+      Induk tema ini, android:Theme.Material.NoActionBar, punya
+      android:windowBackground bawaan bernilai #303030, abu-abu gelap, warna
+      standar Android 5 yang umurnya sudah sepuluh tahun. Latar app kita
+      #0B0A0C, nyaris hitam. Dua warna itu beda jauh.
+
+      Sekarang gabungkan dengan kenyataan yang saya tulis di ui/theme/Theme.kt:
+      MaterialTheme tidak menggambar apa pun. Jadi setiap kali ada satu frame di
+      mana isi app belum menutupi layar, misalnya saat katalog dibongkar dan
+      layar detail belum selesai diukur, yang nongol di celah itu adalah #303030.
+
+      Itu bukan bug Compose, bukan HP-mu, bukan ROM custom-mu. Itu warna yang
+      memang kita suruh tampil, cuma kita tidak pernah tahu kita menyuruhnya.
+
+      Pelajarannya, dan ini yang saya mau kamu ingat: kalau ada yang berkedip di
+      layar, tersangka pertama BUKAN animasi. Tersangka pertama adalah lapisan
+      warna yang seharusnya tertutup, tapi ada satu frame di mana penutupnya
+      belum sempat tergambar. Cari warna aslinya, cocokkan, kilatannya hilang.
+      Sebab kilatan cuma bisa terlihat kalau ada SELISIH warna.
+
+      #0B0A0C = salinan DarkBackground di ui/theme/Color.kt.
+    -->
+    <style name="Theme.CalisthenicaCezar" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0B0A0C</item>
+    </style>
+</resources>

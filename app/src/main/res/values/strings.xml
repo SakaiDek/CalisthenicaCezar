@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Calisthenica Cezar</string>
+    <string name="home_title">Calisthenica Cezar</string>
+
+    <!-- Dasbor -->
+    <string name="home_empty_title">Belum ada program</string>
+    <string name="home_empty_body">Tekan tombol + di kanan bawah untuk bikin program latihan pertamamu.</string>
+    <string name="home_add_program">Program baru</string>
+
+    <!-- Dialog tambah program -->
+    <string name="dialog_new_program_title">Program baru</string>
+    <string name="dialog_field_title">Nama program</string>
+    <string name="dialog_field_title_hint">Contoh: Pull Day A</string>
+    <string name="dialog_field_desc">Catatan singkat</string>
+    <string name="dialog_field_desc_hint">Fokus latihan, target, atau pengingat</string>
+    <string name="dialog_save">Simpan</string>
+    <string name="dialog_cancel">Batal</string>
+
+    <!-- Kartu program -->
+    <string name="card_no_exercise">Belum ada gerakan</string>
+    <string name="card_session_structure">Struktur sesi</string>
+    <string name="card_delete">Hapus program</string>
+
+    <!-- Dialog konfirmasi hapus -->
+    <string name="dialog_delete_title">Hapus program?</string>
+    <!-- %1$s = nama programnya. Menyebut namanya bikin user sadar dia mau
+         menghapus yang mana, bukan sekadar mengiyakan dialog. -->
+    <string name="dialog_delete_body">“%1$s” akan dihapus permanen. Tidak bisa dibatalkan.</string>
+    <string name="dialog_delete_confirm">Hapus</string>
+
+    <!-- Katalog gerakan -->
+    <string name="home_open_catalog">Katalog gerakan</string>
+    <string name="catalog_title">Katalog Gerakan</string>
+    <string name="catalog_back">Kembali</string>
+    <string name="catalog_add">Gerakan baru</string>
+    <string name="catalog_empty_title">Katalog masih kosong</string>
+    <string name="catalog_empty_body">Tekan tombol + untuk mendaftarkan gerakan pertamamu. Sekali terdaftar, gerakan itu bisa dipakai di semua program tanpa ditulis ulang.</string>
+    <string name="catalog_filter_all">Semua</string>
+    <!-- %1$d = jumlah gerakan yang lolos filter -->
+    <string name="catalog_count">%1$d gerakan</string>
+    <string name="catalog_filter_empty">Belum ada gerakan di kategori ini.</string>
+
+    <!-- Pencarian di katalog -->
+    <string name="catalog_search">Cari gerakan, otot, atau alat</string>
+    <string name="catalog_search_clear">Kosongkan pencarian</string>
+    <!-- %1$s = kata yang diketik user. Dikutip supaya user lihat persis apa
+         yang dia cari, termasuk kalau ada salah ketik. -->
+    <string name="catalog_search_empty">Tidak ada gerakan yang cocok dengan “%1$s”.</string>
+    <string name="catalog_instruction">Cara melakukan</string>
+    <string name="catalog_no_instruction">Belum ada instruksi.</string>
+    <!-- Tombol di dasar layar detail. Menggantikan "Hapus gerakan" + dialog
+         konfirmasinya (catalog_delete, dialog_delete_exercise_title,
+         dialog_delete_exercise_body) yang dibuang 5 Sept 2026 karena penghapusan
+         sekarang cuma lewat satu jalur: mode pilih di katalog. Teks yang tidak
+         dipakai lagi ikut dihapus dari sini, bukan ditinggal menumpuk; setiap
+         string yatim itu tebakan buat orang berikutnya yang membaca file ini.
+         CATATAN: di dalam komentar XML dilarang ada dua tanda minus berurutan.
+         Itu yang bikin build 5 Sept 2026 gagal di mergeDebugResources. Kalau
+         mau memisahkan kalimat di file .xml, pakai titik koma atau em dash. -->
+    <string name="detail_edit">Edit gerakan</string>
+
+    <!-- Gambar gerakan -->
+    <string name="catalog_thumbnail">Foto gerakan</string>
+    <string name="catalog_no_thumbnail">Belum ada foto</string>
+    <!-- Tombol manual di pojok foto: default gambar tampil utuh (Fit), tombol ini
+         membukanya penuh satu layar tanpa bilah hitam. Lihat FotoLayarPenuh.kt. -->
+    <string name="foto_perbesar">Lihat foto satu layar penuh</string>
+    <string name="foto_tutup">Tutup foto</string>
+    <!-- %1$d = berapa otot yang tidak ikut ditampilkan di kartu.
+         Dipakai menggantikan pemotongan tengah kata ("...Latissim…") yang
+         Sakai laporkan sebagai "bug kepotong" pada 5 Sept 2026. -->
+    <string name="catalog_muscle_more">+%1$d lagi</string>
+
+    <!-- Mode pilih banyak di katalog -->
+    <string name="catalog_hint_longpress">Tekan kartu untuk membuka detailnya. Tekan lama untuk memilih beberapa sekaligus.</string>
+    <!-- %1$d = berapa yang sedang tercentang -->
+    <string name="catalog_selection_count">%1$d dipilih</string>
+    <string name="catalog_selection_cancel">Batalkan pilihan</string>
+    <string name="catalog_select_all">Pilih semua</string>
+    <string name="catalog_select_none">Bersihkan pilihan</string>
+    <string name="catalog_delete_selected">Hapus yang dipilih</string>
+    <!-- %1$d = jumlah gerakan yang akan dihapus. Angkanya WAJIB disebut:
+         "Hapus gerakan?" tanpa jumlah bikin orang menekan Hapus tanpa sadar
+         dia sedang membuang 14 baris, bukan 1. -->
+    <string name="dialog_delete_many_title">Hapus %1$d gerakan?</string>
+    <string name="dialog_delete_many_body">Semua gerakan yang tercentang akan dihapus permanen dari katalog, beserta fotonya. Tidak bisa dibatalkan.</string>
+
+    <!-- Form gerakan: satu layar, dua judul. Wizard-nya sama persis, yang beda
+         cuma dari mana nilai awalnya datang. -->
+    <string name="form_title">Gerakan baru</string>
+    <string name="form_title_edit">Ubah gerakan</string>
+    <string name="form_name">Nama gerakan</string>
+    <string name="form_name_hint">Contoh: Scapular Chin Up</string>
+    <string name="form_category">Kategori</string>
+    <string name="form_type">Satuan default</string>
+    <!-- Kata "default" di label atas itu istilah programmer. Kalimat ini yang
+         menerjemahkannya jadi bahasa manusia: satuan ini cuma saran awal, nanti
+         bisa ditimpa per program. -->
+    <string name="form_type_hint">Boleh diganti nanti saat gerakan ini dipakai di sebuah program.</string>
+    <string name="form_muscles">Otot yang dilatih</string>
+    <string name="form_muscles_hint">Boleh lebih dari satu, boleh juga dilewati dulu.</string>
+    <string name="form_equipment">Alat yang dipakai</string>
+    <!-- Kalimatnya sengaja menyebut "cukup badan sendiri", BUKAN "pilih Tanpa
+         Alat". Di tabel equipment memang tidak ada baris NONE: tidak memilih
+         apa pun ITULAH jawabannya. Teks di layar harus mengajari user aturan
+         itu, bukan membuatnya mencari pilihan yang tidak ada. -->
+    <string name="form_equipment_hint">Lewati saja kalau gerakannya cukup pakai badan sendiri.</string>
+    <string name="form_instruction">Cara melakukan</string>
+    <!-- Dipakai HANYA di mode paragraf sekarang. Teks lamanya ("satu langkah
+         satu baris, tekan Enter") sudah tidak berlaku sejak langkah bernomor
+         punya kolom sendiri per langkah, 5 Sept 2026. -->
+    <string name="form_instruction_hint">Tulis penjelasan bebas, tanpa nomor langkah.</string>
+    <string name="form_format_steps">Langkah bernomor</string>
+    <string name="form_format_paragraph">Paragraf</string>
+    <string name="form_step_placeholder">Tulis langkahnya</string>
+    <string name="form_step_add">Tambah langkah</string>
+    <string name="form_step_remove">Hapus langkah ini</string>
+    <string name="form_youtube">Link YouTube (opsional)</string>
+    <string name="form_youtube_hint">Boleh dikosongkan. Video dari galeri menyusul.</string>
+    <string name="form_save">Simpan gerakan</string>
+    <string name="form_hint_required">Nama dan kategori wajib diisi.</string>
+
+    <!-- Wizard: form gerakan dipecah jadi 4 langkah, 5 Sept 2026. Dulu 3.
+         Langkah alat dipisah dari langkah otot karena judulnya sendiri sudah
+         berbentuk satu pertanyaan, dan satu pertanyaan pantas dapat satu layar.
+         %1$d = langkah sekarang, %2$d = jumlah langkah. Angka kedua ikut
+         ditampilkan dengan sengaja: "Langkah 2" saja bikin orang bertanya
+         masih berapa lagi, "Langkah 2 dari 4" langsung menjawabnya. -->
+    <string name="form_step_of">Langkah %1$d dari %2$d</string>
+    <string name="form_step1_label">Identitas &amp; Foto</string>
+    <string name="form_step2_label">Apakah gerakan ini membutuhkan alat?</string>
+    <string name="form_step3_label">Otot Target</string>
+    <string name="form_step4_label">Instruksi &amp; Video</string>
+    <string name="form_next">Lanjut</string>
+    <string name="form_back">Kembali</string>
+    <string name="form_review">Periksa dulu sebelum disimpan</string>
+    <string name="form_none">Belum ada</string>
+
+    <!-- Foto gerakan di form -->
+    <string name="form_thumbnail">Foto gerakan (opsional)</string>
+    <string name="form_thumbnail_hint">Diambil dari galeri, lalu disalin ke dalam app. Setelah disalin, fotonya tetap ada walau kamu hapus dari galeri.</string>
+    <string name="form_thumbnail_pick">Pilih dari galeri</string>
+    <string name="form_thumbnail_change">Ganti foto</string>
+    <string name="form_thumbnail_remove">Hapus foto</string>
+    <string name="form_thumbnail_working">Menyalin foto…</string>
+    <string name="form_thumbnail_failed">Foto gagal disalin. Coba pilih yang lain.</string>
+
+    <!-- Layar Detail Gerakan -->
+    <string name="detail_equipment">Alat</string>
+    <!-- Ini kalimat yang menerjemahkan "list kosong" jadi bahasa manusia.
+         Aturan app-nya: tidak ada alat terpilih = badan sendiri. Layar yang
+         menampilkan datanya yang bertugas mengucapkannya, bukan databasenya. -->
+    <string name="detail_no_equipment">Tanpa alat — cukup badan sendiri.</string>
+    <string name="detail_muscles">Otot yang dilatih</string>
+    <string name="detail_no_muscles">Belum ditandai ototnya.</string>
+    <string name="detail_youtube">Video referensi</string>
+    <string name="detail_youtube_open">Buka di YouTube</string>
+    <string name="detail_youtube_failed">Tidak ada app yang bisa membuka link ini.</string>
+
+    <!-- ================= ALAT (tabel equipment, 5 Sept 2026) =================
+         Semua teks di bawah ini lahir bersama keputusan mengubah Alat dari enum
+         jadi tabel. Tidak ada satu pun nama alat yang ditulis di sini, dan itu
+         memang intinya: daftar alat sekarang milik user, bukan milik app. -->
+    <string name="alat_step_hint">Tekan alat untuk memilih. Tekan lama kalau mau mengubah nama, ganti foto, atau menghapusnya.</string>
+    <string name="alat_empty_title">Gudangmu masih kosong</string>
+    <string name="alat_empty_body">Daftarkan alat yang benar-benar kamu punya — palang di rumah, matras, handuk. Sekali didaftarkan, alatnya bisa dipakai di semua gerakan.</string>
+    <string name="alat_add">Tambah alat</string>
+    <string name="alat_photo">Foto alat</string>
+    <string name="alat_no_photo">Belum ada foto</string>
+    <!-- %1$d = berapa alat yang sedang tercentang, %2$d = jumlah alat di gudang -->
+    <string name="alat_selected_of">%1$d dari %2$d alat dipilih</string>
+    <string name="alat_none_selected">Belum ada alat dipilih — berarti badan sendiri.</string>
+
+    <!-- Dialog tambah / ubah alat -->
+    <string name="alat_dialog_new">Alat baru</string>
+    <string name="alat_dialog_edit">Ubah alat</string>
+    <string name="alat_name">Nama alat</string>
+    <string name="alat_name_hint">Contoh: Pull Up Bar pintu kamar</string>
+    <string name="alat_delete">Hapus alat</string>
+    <!-- %1$s = nama alatnya -->
+    <string name="alat_delete_title">Hapus “%1$s”?</string>
+    <!-- %1$d = berapa gerakan yang memakai alat ini. Angkanya WAJIB disebut:
+         menghapus alat TIDAK menghapus gerakannya, tapi tanda alatnya hilang,
+         dan user pantas tahu berapa banyak yang terpengaruh sebelum menekan. -->
+    <string name="alat_delete_body_used">Alat ini dipakai di %1$d gerakan. Gerakannya tidak akan terhapus, tapi tanda alat ini hilang dari semuanya. Tidak bisa dibatalkan.</string>
+    <string name="alat_delete_body_unused">Alat ini belum dipakai di gerakan mana pun. Tidak bisa dibatalkan.</string>
+    <string name="alat_delete_counting">Menghitung dulu berapa gerakan yang memakainya…</string>
+
+    <!-- ============= KETINGGIAN ALAT (5 Sept 2026) =============
+         Perhatikan apa yang TIDAK ada di sini: nama-nama tingkatannya
+         (Selantai, Sepinggul, Di atas kepala). Itu tinggal di enum Ketinggian
+         bersama angkanya, mengikuti gaya rumah yang sama dengan
+         ExerciseCategory dan Muscle. Alasannya satu dan praktis: menambah satu
+         tingkatan baru nanti cukup satu baris Kotlin, tidak menyeret perubahan
+         ke file XML yang terpisah. Yang di sini cuma teks di sekitarnya. -->
+    <string name="alat_adjustable">Bisa diatur ketinggiannya</string>
+    <string name="alat_adjustable_hint">Nyalakan untuk ring, palang portabel, atau TRX yang bisa kamu naik-turunkan. Setelah nyala, setiap gerakan yang memakai alat ini boleh punya ketinggiannya sendiri.</string>
+    <!-- %1$s = label tingkatannya, contohnya “Sepinggul”. Dipakai dua kali:
+         di pil kecil dalam daftar alat, dan di layar detail gerakan. -->
+    <string name="alat_height_set">Ketinggian: %1$s</string>
+    <string name="alat_height_unset">Atur ketinggian</string>
+
+    <!-- Layar pemilih ketinggian -->
+    <string name="tinggi_kicker">Ketinggian alat</string>
+    <string name="tinggi_hint">Geser ke atas atau ke bawah, atau tekan langsung tingkatannya.</string>
+    <string name="tinggi_done">Pakai ini</string>
+
+    <!-- Label baris di ringkasan langkah 4 -->
+    <string name="form_height">Ketinggian</string>
+
+    <!-- ========= PERAKIT PROGRAM (tabel jembatan, 7 Sept 2026) =========
+         Semua teks di bawah lahir bersama tabel `program_exercises`, tabel yang
+         akhirnya menyambungkan program dengan gerakan.
+
+         Perhatikan apa yang TIDAK ada di sini: nama tiga grupnya (Pemanasan,
+         Inti, Pendinginan). Itu tinggal di enum Grup bersama nomornya, sama
+         seperti ExerciseCategory, Muscle, dan Ketinggian. Nomornya yang
+         tersimpan di database, labelnya cuma cara menyebutnya hari ini.
+
+         Catatan format: setiap teks yang dipakai bersama angka atau kata lain
+         WAJIB memakai penanda bernomor (%1$d, %2$s), bukan penanda telanjang
+         (%d, %s). Kalau nanti bahasanya diterjemahkan dan urutan katanya
+         berubah, penanda bernomor masih bisa ditukar posisinya; penanda
+         telanjang harus mengikuti urutan aslinya atau salah isi. -->
+    <string name="rakit_back">Kembali</string>
+    <string name="rakit_hint">Tekan gerakan untuk mengatur set, angka, dan istirahatnya.</string>
+    <!-- %1$d = total gerakan di seluruh program, %2$s = perkiraan durasi -->
+    <string name="rakit_total">%1$d gerakan · sekitar %2$s</string>
+    <string name="rakit_total_empty">Program ini masih kosong. Mulai dari grup mana saja di bawah.</string>
+    <string name="rakit_grup_kosong">Belum ada gerakan di grup ini</string>
+    <!-- %1$d = jumlah gerakan di grup ini, %2$s = perkiraan durasi grup ini -->
+    <string name="rakit_grup_isi">%1$d gerakan · sekitar %2$s</string>
+    <!-- Dua satuan durasi. Yang di bawah 1 menit ditulis apa adanya dalam detik;
+         menyebut “1 menit” untuk pemanasan 40 detik itu pembulatan yang
+         menyesatkan. -->
+    <string name="rakit_menit">%1$d menit</string>
+    <string name="rakit_detik">%1$d detik</string>
+    <string name="rakit_tambah">Tambah gerakan</string>
+    <string name="rakit_naik">Geser ke atas</string>
+    <string name="rakit_turun">Geser ke bawah</string>
+    <!-- %1$d = jumlah set, %2$d = angka sasaran, %3$s = satuannya.
+         Contoh jadinya: “3 set × 12 repetisi” atau “1 set × 160 detik”.
+         Satuannya dikirim sebagai teks terpisah karena artinya ditentukan kolom
+         `tipe` di database, dan kolom itu bisa diubah user per baris. -->
+    <string name="rakit_ringkas">%1$d set × %2$d %3$s</string>
+    <string name="rakit_satuan_reps">repetisi</string>
+    <string name="rakit_satuan_detik">detik</string>
+    <!-- %1$d = detik istirahat setelah tiap set -->
+    <string name="rakit_istirahat">Istirahat %1$d detik</string>
+    <string name="rakit_tanpa_istirahat">Tanpa istirahat — langsung lanjut</string>
+
+    <!-- Layar pemilih gerakan -->
+    <string name="rakit_pilih_title">Pilih gerakan</string>
+    <!-- %1$s = nama grup tujuannya. WAJIB kelihatan: tanpa ini kamu memilih
+         lima gerakan berturut-turut tanpa tahu sedang mengisi grup mana. -->
+    <string name="rakit_pilih_sub">Masuk ke grup %1$s</string>
+    <string name="rakit_pilih_kosong">Katalog gerakanmu masih kosong. Buka Katalog Gerakan dulu dan daftarkan minimal satu gerakan, baru program ini bisa dirakit.</string>
+
+    <!-- Dialog pengatur angka satu baris -->
+    <string name="param_tipe">Dihitung atau ditahan?</string>
+    <string name="param_set">Set</string>
+    <string name="param_istirahat">Istirahat (detik)</string>
+    <string name="param_catatan">Catatan</string>
+    <string name="param_catatan_hint">Contoh: rompi 5kg, tempo turun 3 detik</string>
+    <string name="param_keluarkan">Keluarkan dari program</string>
+
+    <!-- Tambahan untuk kartu dasbor, menggantikan teks palsu “Group 1 —
+         Pemanasan” yang selama ini ditulis tangan di WorkoutCard.kt. -->
+    <string name="card_open_builder">Susun gerakan</string>
+    <!-- %1$s = nama grup, %2$d = jumlah gerakan, %3$s = perkiraan durasi -->
+    <string name="card_group_line">%1$s · %2$d gerakan · %3$s</string>
+    <!-- %1$s = nama grup yang belum diisi -->
+    <string name="card_group_empty">%1$s · belum diisi</string>
+    <!-- %1$d = total gerakan seluruh program, %2$s = perkiraan durasi total -->
+    <string name="card_total">%1$d gerakan · sekitar %2$s</string>
+    <!-- Tombol eksekusi di kartu. Sengaja sesingkat ini karena dia berbagi satu
+         baris dengan “Susun gerakan”; ikon panah putar di sebelahnya sudah
+         menjelaskan sisanya. -->
+    <string name="card_start">Mulai</string>
+
+    <!-- ==================================================================
+         Session Runner: layar eksekusi latihan aktif.
+
+         Catatan penulisan yang berlaku untuk seluruh blok ini: SEMUA penanda
+         wajib bernomor (%1$d, bukan %d). Penanda telanjang tidak bisa ditukar
+         urutannya kalau app ini suatu hari diterjemahkan, dan penjaga
+         tools/cek-struktur.py sekarang menolaknya.
+         ================================================================== -->
+    <string name="run_close">Tutup sesi</string>
+    <string name="run_loading">Menyiapkan sesi…</string>
+    <!-- Tombol pojok di layar imersif. Karena fotonya sekarang jadi LATAR penuh,
+         tombol ini tidak lagi "memperbesar foto"; tugasnya menyingkirkan semua
+         teks/tombol supaya fotonya bersih, lalu memunculkannya lagi. -->
+    <string name="run_sembunyikan_ui">Sembunyikan info, tampilkan foto saja</string>
+    <string name="run_tampilkan_ui">Tampilkan lagi info gerakan</string>
+    <!-- Tombol panah kiri di fase KERJA: balik ke set sebelumnya tanpa
+         menghitung istirahat. -->
+    <string name="run_mundur">Set sebelumnya</string>
+    <!-- Ketuk nama gerakan atau fotonya (saat info tampil) untuk membuka
+         layar detail gerakan; timer sesi tetap jalan di belakang. -->
+    <string name="run_lihat_detail">Lihat detail gerakan</string>
+    <!-- %1$d = gerakan ke berapa, %2$d = total gerakan di program -->
+    <string name="run_progress">Gerakan %1$d dari %2$d</string>
+    <!-- %1$d = set ke berapa, %2$d = total set gerakan ini -->
+    <string name="run_set">Set %1$d dari %2$d</string>
+    <string name="run_rest">Istirahat</string>
+    <string name="run_rest_done">Istirahat selesai</string>
+    <string name="run_ready">Siap?</string>
+    <string name="run_next">Berikutnya</string>
+    <string name="run_remaining">tersisa</string>
+    <string name="run_unit_reps">repetisi</string>
+    <!-- %1$d = nomor set yang akan dikerjakan -->
+    <string name="run_start_set">Mulai set %1$d</string>
+    <string name="run_skip">Lewati gerakan ini</string>
+    <string name="run_set_done">Set selesai</string>
+    <string name="run_stop_early">Selesai lebih awal</string>
+    <!-- %1$d = jumlah repetisi sasaran -->
+    <string name="run_target_reps">Target %1$d repetisi</string>
+    <!-- %1$s = lama tahan, sudah diformat jadi menit:detik -->
+    <string name="run_target_hold">Tahan %1$s</string>
+    <!-- %1$s = waktu yang sudah berjalan, format menit:detik -->
+    <string name="run_elapsed">Sudah berjalan %1$s</string>
+    <string name="run_finish_title">Sesi selesai</string>
+    <!-- %1$d = jumlah set yang benar benar diselesaikan -->
+    <string name="run_finish_sets">%1$d set diselesaikan</string>
+    <!-- %1$d = jumlah gerakan di program, %2$s = lama sesi -->
+    <string name="run_finish_body">%1$d gerakan · %2$s</string>
+    <string name="run_finish_note">Sesi ini BELUM tercatat ke riwayat. Tabel riwayat, kalender, dan streak dibangun di build berikutnya, jadi angka di atas cuma untuk dilihat sekarang.</string>
+    <string name="run_finish_close">Tutup</string>
+    <string name="run_quit_title">Hentikan sesi?</string>
+    <string name="run_quit_body">Kemajuan sesi ini tidak disimpan dan akan hilang.</string>
+    <string name="run_quit_confirm">Hentikan</string>
+</resources>

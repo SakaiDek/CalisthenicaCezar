@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- IZIN PERTAMA DI APP INI. Sampai hari ini manifest kita nol izin, dan itu
+         prestasi yang sengaja dijaga: foto dibaca dari penyimpanan internal
+         app sendiri, video diputar dari file yang kita salin sendiri, database
+         lokal. Nol izin berarti nol dialog yang bikin user ragu saat install.
+
+         VIBRATE beda kelas dengan kamera atau lokasi. Dia izin tingkat NORMAL:
+         Android memberikannya OTOMATIS saat install dan TIDAK ada dialog yang
+         muncul ke user. Jadi tidak perlu kode permintaan izin saat app jalan.
+
+         Tapi barisnya tetap WAJIB ada. Tanpa dia, panggilan vibrate() melempar
+         SecurityException, app-nya mati, dan build-nya tetap hijau karena
+         compiler tidak pernah membaca manifest. Jenis kegagalan yang cuma
+         kelihatan di logcat.
+
+         Dipakai di: ui/SessionRunnerScreen.kt, fungsi getar(). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- android:name mendaftarkan kelas Application kita (CezarApp.kt). Isinya
+         satu ImageLoader Coil bersama: cache memori 25% jatah RAM, RGB_565, tanpa
+         crossfade. Tanpa baris ini Android memakai Application bawaan, kelas kita
+         tidak pernah dipanggil, dan tidak ada satu pun peringatan yang muncul;
+         gejalanya cuma "kok gambarnya masih lambat". Jadi kalau suatu hari daftar
+         berfoto terasa berat lagi, periksa baris ini DULU. -->
+    <application
+        android:name=".CezarApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.CalisthenicaCezar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.CalisthenicaCezar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

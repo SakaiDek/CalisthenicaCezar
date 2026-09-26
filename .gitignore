@@ -1,0 +1,34 @@
+# Build & tooling
+.gradle/
+build/
+app/build/
+local.properties
+.cxx/
+.kotlin/
+
+# Log build yang ditulis 3-update-ke-hp.bat supaya Claude bisa membacanya
+# sendiri. Isinya hasil build DI MESIN INI -- tidak ada gunanya di mesin lain,
+# dan ukurannya berubah setiap kali build. Jangan pernah masuk git.
+build-log.txt
+
+# Log dari HP yang ditarik 4-ambil-log-hp.bat. Isinya keadaan RUNTIME di
+# Poco F5 milik Sakai -- nama model, versi ROM, jejak crash. Spesifik untuk
+# satu perangkat dan satu momen. Tidak ada gunanya di git.
+logcat.txt
+
+# IDE
+.idea/
+*.iml
+.vscode/settings.json
+
+# Android
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+output.json
+
+# OS
+Thumbs.db
+.DS_Store
