@@ -239,6 +239,9 @@
     <string name="rakit_tambah">Tambah gerakan</string>
     <string name="rakit_naik">Geser ke atas</string>
     <string name="rakit_turun">Geser ke bawah</string>
+    <string name="rakit_duplikat">Salin gerakan ini</string>
+    <string name="rakit_undo">Batalkan langkah terakhir</string>
+    <string name="rakit_redo">Ulangi langkah</string>
     <!-- %1$d = jumlah set, %2$d = angka sasaran, %3$s = satuannya.
          Contoh jadinya: “3 set × 12 repetisi” atau “1 set × 160 detik”.
          Satuannya dikirim sebagai teks terpisah karena artinya ditentukan kolom
@@ -326,9 +329,73 @@
     <string name="run_finish_sets">%1$d set diselesaikan</string>
     <!-- %1$d = jumlah gerakan di program, %2$s = lama sesi -->
     <string name="run_finish_body">%1$d gerakan · %2$s</string>
-    <string name="run_finish_note">Sesi ini BELUM tercatat ke riwayat. Tabel riwayat, kalender, dan streak dibangun di build berikutnya, jadi angka di atas cuma untuk dilihat sekarang.</string>
+    <string name="run_finish_note">Sesi ini sudah tersimpan ke Riwayat. Buka menu Riwayat kapan saja untuk melihat kembali catatan latihanmu.</string>
     <string name="run_finish_close">Tutup</string>
     <string name="run_quit_title">Hentikan sesi?</string>
     <string name="run_quit_body">Kemajuan sesi ini tidak disimpan dan akan hilang.</string>
     <string name="run_quit_confirm">Hentikan</string>
+
+    <!-- ===== Layar Riwayat (daftar sesi yang sudah selesai) ===== -->
+    <string name="riwayat_title">Riwayat</string>
+    <string name="riwayat_back">Kembali</string>
+    <!-- Tombol pembuka Riwayat di bilah atas Dasbor -->
+    <string name="riwayat_open">Buka Riwayat</string>
+    <string name="riwayat_empty_title">Belum ada riwayat</string>
+    <string name="riwayat_empty_body">Selesaikan satu sesi latihan sampai layar SELESAI, nanti catatannya muncul di sini.</string>
+    <!-- %1$s = tanggal lengkap, %2$s = jam selesai -->
+    <string name="riwayat_waktu">%1$s · %2$s</string>
+    <!-- %1$s = lama sesi, %2$d = jumlah set, %3$d = jumlah gerakan -->
+    <string name="riwayat_ringkas">%1$s · %2$d set · %3$d gerakan</string>
+    <!-- Deskripsi chevron buka/tutup kartu (untuk pembaca layar) -->
+    <string name="riwayat_expand">Buka rincian gerakan</string>
+    <string name="riwayat_collapse">Tutup rincian gerakan</string>
+    <!-- Baris rincian gerakan di panel detail. %1$d = jumlah set, %2$d = target -->
+    <string name="riwayat_detail_reps">%1$d set × %2$d rep</string>
+    <string name="riwayat_detail_hold">%1$d set × tahan %2$d dtk</string>
+    <!-- Sesi lama (sebelum rincian gerakan dicatat) yang tidak punya detail -->
+    <string name="riwayat_detail_kosong">Rincian gerakan tidak tercatat untuk sesi ini.</string>
+
+    <!-- ===== Layar Kalender & Streak (Ronde 2, 26 Sept 2026) =====
+         Semua ini VIEW read-only di atas tabel `session_logs` yang sudah ada;
+         tidak ada tabel baru dan tidak ada migrasi. Kolom `tanggal` (teks ISO
+         lokal) yang dulu sengaja disiapkan justru dibaca di sini untuk grid
+         bulan dan hitung hari beruntun. -->
+    <string name="kalender_title">Kalender</string>
+    <!-- Tombol pembuka Kalender di bilah atas Dasbor -->
+    <string name="kalender_open">Buka Kalender</string>
+    <string name="kalender_back">Kembali</string>
+    <string name="kalender_bulan_sebelumnya">Bulan sebelumnya</string>
+    <string name="kalender_bulan_berikutnya">Bulan berikutnya</string>
+    <string name="kalender_streak_judul">Streak latihan</string>
+    <!-- %1$d = jumlah hari latihan beruntun sampai hari ini -->
+    <string name="kalender_streak_hari">%1$d hari beruntun</string>
+    <string name="kalender_streak_kosong">Belum ada streak — mulai hari ini!</string>
+    <!-- %1$s = tanggal lengkap hari yang diketuk, contoh "Sabtu, 26 September 2026" -->
+    <string name="kalender_sesi_pada">Sesi pada %1$s</string>
+    <string name="kalender_pilih_hint">Ketuk tanggal bertitik untuk melihat sesi hari itu.</string>
+    <string name="kalender_empty">Belum ada latihan tercatat. Selesaikan satu sesi sampai layar SELESAI, nanti tanggalnya muncul bertitik di sini.</string>
+
+    <!-- ===== Bilah Navigasi Bawah mengambang (Die Ringe, 26 Sept 2026) =====
+         Label pendek tiga tujuan utama di pil mengambang, menggantikan tombol pojok
+         kanan atas yang susah dijangkau jempol. Sengaja satu kata biar muat rapi di
+         bawah ikon tanpa terpotong di layar sempit.
+         CATATAN "Skill": untuk sekarang tab ini membuka Katalog Gerakan yang sudah
+         ada. Skill Mastery Tracker (bar 0-100%) itu layar tersendiri yang belum
+         dibangun; saat nanti jadi, cukup ganti tujuan tab ini -- labelnya sudah pas. -->
+    <string name="nav_beranda">Beranda</string>
+    <string name="nav_skill">Skill</string>
+    <string name="nav_riwayat">Riwayat</string>
+
+    <!-- ===== Foto profil di bilah atas + kartu/section Beranda (Die Ringe) ===== -->
+    <!-- Deskripsi untuk pembaca layar; avatar masih placeholder, layar profil ditunda. -->
+    <string name="profil_deskripsi">Profil</string>
+    <string name="profil_dialog_judul">Profil segera hadir</string>
+    <string name="profil_dialog_isi">Layar profil &amp; pengaturan belum dibangun di versi ini. Nanti dari sinilah pintu ke pengaturan (dan akses admin tersembunyi) akan tinggal.</string>
+    <string name="profil_dialog_tutup">Oke</string>
+    <!-- Judul kecil pemisah antara kartu streak/kalender dengan daftar program. -->
+    <string name="home_program_header">Program latihan</string>
+    <!-- Hint singkat saat belum ada program, ditaruh di bawah kalender (bukan layar kosong penuh lagi). -->
+    <string name="home_program_kosong">Belum ada program. Ketuk "+ Program baru" untuk bikin yang pertama.</string>
+    <!-- Deskripsi ikon Edit di kartu program (ikon tanpa teks butuh label pembaca layar). -->
+    <string name="card_edit">Ubah program</string>
 </resources>

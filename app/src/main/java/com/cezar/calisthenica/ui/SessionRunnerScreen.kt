@@ -76,15 +76,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.room.withTransaction
 import com.cezar.calisthenica.R
 import com.cezar.calisthenica.data.AppDatabase
 import com.cezar.calisthenica.data.BarisRakitan
 import com.cezar.calisthenica.model.ExerciseType
 import com.cezar.calisthenica.model.Grup
+import com.cezar.calisthenica.model.SessionExerciseLog
+import com.cezar.calisthenica.model.SessionLog
 import com.cezar.calisthenica.model.WorkoutProgram
 import kotlinx.coroutines.delay
 import coil.compose.AsyncImage
 import com.cezar.calisthenica.data.fileGambar
+import java.time.LocalDate
 
 /**
  * ===========================================================================
@@ -205,17 +209,27 @@ private enum class Fase {
 /**
  * Layar eksekusi latihan. Dipanggil dari kartu dasbor lewat tombol "Mulai".
  *
- * SATU-SATUNYA yang dibaca dari database: daftar gerakan program ini, lewat
- * `observeRakitan` yang sudah dipakai layar perakit. TIDAK ada tulisan ke
- * database sama sekali di build ini -- riwayat sesi itu tabel yang belum ada,
- * dan saya lebih suka layar ini jujur bilang "belum tercatat" daripada
- * diam-diam membuang hasil kerjamu.
+ * Dari DB versi 7, layar ini punya DUA urusan dengan database:
+ *   BACA  -- daftar gerakan program ini, lewat `observeRakitan` (sama seperti
+ *            layar perakit).
+ *   TULIS -- satu baris riwayat ke `session_logs`, TEPAT saat kamu menyentuh
+ *            garis SELESAI. Bukan saat mulai, bukan saat keluar di tengah:
+ *            streak harus jujur, sesi yang di-cancel tidak dihitung.
+ *
+ * Tulisan itu dijaga flag `sudahDicatat` supaya satu sesi = satu baris, tidak
+ * dobel walau layar diputar. Lihat komentar di `LaunchedEffect(fase)` di bawah.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionRunnerScreen(program: WorkoutProgram, onBack: () -> Unit) {
     val context = LocalContext.current
-    val peDao = remember(context) { AppDatabase.get(context).programExerciseDao() }
+    // Satu pintu database diingat sekali; ketiga DAO diambil DARI pintu yang
+    // sama supaya penulisan induk (session_logs) dan anak (session_exercise_logs)
+    // bisa dibungkus satu transaksi lewat `db.withTransaction` di bawah.
+    val db = remember(context) { AppDatabase.get(context) }
+    val peDao = remember(db) { db.programExerciseDao() }
+    val logDao = remember(db) { db.sessionLogDao() }
+    val selDao = remember(db) { db.sessionExerciseLogDao() }
 
     // `remember(program.id)` -- KUNCINYA WAJIB. Tanpa kunci, `remember` berarti
     // "hitung sekali, simpan selamanya", dan kalau kamu keluar lalu membuka
@@ -252,6 +266,15 @@ fun SessionRunnerScreen(program: WorkoutProgram, onBack: () -> Unit) {
     // ringkasan. Kalau dihitung terus, angka "Durasi 24 menit" akan naik sendiri
     // selama kamu memandangi layar ringkasan -- lucu, tapi salah.
     var durasiSesiDetik by rememberSaveable { mutableStateOf(0) }
+
+    // Palang pintu anti-dobel untuk baris riwayat. false = sesi ini belum
+    // dicatat. Begitu jadi true, LaunchedEffect(fase) tidak akan menulis lagi.
+    //
+    // KENAPA `rememberSaveable`, bukan `remember` biasa: kalau cuma `remember`,
+    // memutar HP tepat di layar SELESAI akan MENGHAPUS flag ini, efek lahir
+    // ulang, dan riwayatmu tercatat DUA KALI untuk satu sesi -- streak langsung
+    // bohong. `rememberSaveable` menyelamatkannya lewat rotasi DAN process-death.
+    var sudahDicatat by rememberSaveable { mutableStateOf(false) }
 
     var konfirmasiKeluar by remember { mutableStateOf(false) }
 
@@ -528,6 +551,98 @@ fun SessionRunnerScreen(program: WorkoutProgram, onBack: () -> Unit) {
                 break
             }
             delay(200)
+        }
+    }
+
+    /*
+     * MENCATAT RIWAYAT: satu sesi, satu baris, tepat di garis SELESAI.
+     *
+     * PELAJARAN HARI INI: kenapa penulisannya di `LaunchedEffect(fase)` dan bukan
+     * di dalam `akhiriSesi()`. `akhiriSesi()` itu fungsi BIASA (bukan composable,
+     * bukan coroutine) yang dipanggil dari dalam onClick -- dia tidak boleh
+     * memanggil `logDao.insert()` yang `suspend`. Kalaupun dipaksa (bikin scope
+     * sendiri), penulisannya tidak akan selamat kalau prosesnya keburu mati.
+     * `LaunchedEffect` sudah punya coroutine scope yang benar, dan dia lahir
+     * ulang otomatis tiap `fase` berubah -- jadi cukup: "kalau fase jadi SELESAI,
+     * catat." Itu deklaratif, bukan diperintah manual dari sana-sini.
+     *
+     * URUTAN YANG DISENGAJA, dan ini inti anti-dobelnya: `sudahDicatat = true`
+     * DITULIS DULU, baru `insert()`. Kenapa bukan sebaliknya? Bayangkan HP diputar
+     * pas milidetik insert sedang jalan. Kalau flag diset SETELAH insert, rotasi
+     * membatalkan coroutine sebelum flag sempat true -> efek lahir ulang -> insert
+     * KEDUA -> riwayat dobel -> streak bohong. Dengan flag diset lebih dulu (dan
+     * `rememberSaveable` membawanya selamat lewat rotasi), efek yang lahir ulang
+     * melihat `sudahDicatat` sudah true dan diam.
+     *
+     * Ongkos yang sadar kita terima: di jendela super-langka itu (rotasi TEPAT
+     * saat insert sub-milidetik), satu log bisa hilang. Kita PILIH kemungkinan
+     * kehilangan satu catatan yang teramat jarang daripada kemungkinan mencatat
+     * dobel -- karena streak yang menghitung satu sesi jadi dua itu kebohongan
+     * yang merusak seluruh gunanya fitur ini. Jujur kurang satu, bukan lebih satu.
+     *
+     * Semua angka yang dicatat sudah SIAP saat efek ini menyala: `akhiriSesi()`
+     * membekukan `durasiSesiDetik` SEBELUM menyetel `faseNama = SELESAI`, jadi
+     * saat komposisi berjalan lagi dengan fase SELESAI, nilainya sudah final.
+     *
+     *   programNama         = program.title DISALIN (foto), lihat SessionLog.kt.
+     *   waktuSelesaiMillis  = currentTimeMillis -> "KAPAN", jam dinding.
+     *   tanggal             = LocalDate.now() lokal HP -> fondasi streak Ronde 2.
+     *                         Native tanpa desugaring karena minSdk 26.
+     *   durasiDetik         = durasiSesiDetik -> "BERAPA LAMA", dari elapsedRealtime.
+     *   catatan             = null: kolomnya sudah ada, UI penulisnya menyusul.
+     */
+    LaunchedEffect(fase) {
+        if (fase == Fase.SELESAI && !sudahDicatat) {
+            sudahDicatat = true
+            // Foto daftar gerakan SEKARANG, sebelum apa pun sempat berubah.
+            // `rakitan` sudah urut (grup lalu urutan) dari query-nya.
+            val gerakanSesi = rakitan
+            // SATU TRANSAKSI untuk induk + anak. Pelajaran hari ini: kenapa dua
+            // tulisan ini harus jadi SATU paket yang tak bisa dipisah. Kalau kita
+            // tulis induk, lalu (misal HP mati / coroutine dibatalkan) anaknya
+            // gagal, kita punya sesi yang PUNYA ringkasan tapi KOSONG daftar
+            // gerakannya -- setengah kebenaran, dan itu lebih membingungkan
+            // daripada tidak ada sama sekali. `withTransaction` bikin keduanya
+            // "semua berhasil, atau semua batal". Tidak ada keadaan setengah jadi.
+            db.withTransaction {
+                // Induk dulu -- id-nya baru lahir DI SINI, dan anak butuh id itu.
+                val sessionId = logDao.insert(
+                    SessionLog(
+                        programId = program.id,
+                        programNama = program.title,
+                        waktuSelesaiMillis = System.currentTimeMillis(),
+                        tanggal = LocalDate.now().toString(),
+                        durasiDetik = durasiSesiDetik,
+                        totalSetSelesai = setSelesai,
+                        totalGerakan = gerakanSesi.size,
+                        catatan = null,
+                    ),
+                )
+                // Lalu anak-anaknya: satu baris per gerakan, MENYALIN nama/tipe/
+                // target/setCount saat ini (foto), ditempeli `sessionId` induk
+                // dan nomor `urutan` = posisinya di daftar yang sudah terurut.
+                selDao.insertAll(
+                    gerakanSesi.mapIndexed { index, b ->
+                        SessionExerciseLog(
+                            sessionId = sessionId,
+                            urutan = index,
+                            namaGerakan = b.namaGerakan,
+                            grup = b.ref.grup,
+                            tipe = b.ref.tipe,
+                            target = b.ref.target,
+                            setCount = b.ref.setCount,
+                            // FOTO nama file thumbnail-nya, difoto SAAT INI juga --
+                            // sama seperti namaGerakan. Kalau bulan depan gerakan
+                            // ini dihapus dari katalog atau fotonya diganti, baris
+                            // riwayat hari ini tetap memegang nama file yang benar.
+                            // `thumbnail` bisa teks kosong (gerakan tanpa foto);
+                            // itu tetap sah, layar Riwayat menampilkannya sebagai
+                            // placeholder kosong lewat FotoAlat.
+                            fotoUri = b.thumbnail,
+                        )
+                    },
+                )
+            }
         }
     }
 
@@ -1270,12 +1385,15 @@ private fun PetunjukDetail(
 }
 
 /**
- * Layar ringkasan. Sengaja MENGAKUI bahwa hasilnya belum disimpan.
+ * Layar ringkasan. Sejak DB v7 dia MENGABARKAN bahwa hasilnya sudah disimpan.
  *
- * Ini penerapan aturan yang sudah kita pegang sejak kartu dasbor berhenti
- * menampilkan "Group 1 - Pemanasan" palsu: app tidak boleh terlihat lebih jadi
- * daripada isinya. Angka-angka di sini nyata untuk sesi yang baru saja kamu
- * kerjakan, dan catatan di bawahnya jujur bahwa besok angka itu sudah hilang.
+ * Ini tetap penerapan aturan yang sama sejak kartu dasbor berhenti menampilkan
+ * "Group 1 - Pemanasan" palsu: app tidak boleh terlihat lebih jadi -- atau lebih
+ * SEDIKIT jadi -- daripada isinya. Dulu catatan di bawah jujur bilang "besok
+ * angka ini hilang" karena tabelnya memang belum ada. Sekarang tabelnya ada,
+ * baris sudah ditulis (lihat `LaunchedEffect(fase)` di atas), jadi catatannya
+ * ikut berubah jujur: "tersimpan ke Riwayat". Teksnya cuma pesan tetap tanpa
+ * argumen -- penulisan sebenarnya terjadi di efek, bukan di sini.
  */
 @Composable
 private fun IsiSelesai(

@@ -712,7 +712,13 @@ fun PanelDetailGerakan(
 
     ModalBottomSheet(
         onDismissRequest = onTutup,
-        sheetState = rememberModalBottomSheetState(),
+        // skipPartiallyExpanded = true: panel langsung MEKAR PENUH mengikuti tinggi
+        // kontennya, bukan mampir dulu di posisi setengah. Instruksi 7 langkah dulu
+        // kepotong di langkah ke-5 waktu sheet berhenti di titik separuh -- user
+        // bisa salah kira gerakannya "cuma segitu". Melewati state Partially
+        // Expanded menutup salah paham itu; kalau konten lebih tinggi dari layar,
+        // Column sudah `verticalScroll` jadi sisanya tetap bisa digulir.
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Column(
             modifier = Modifier

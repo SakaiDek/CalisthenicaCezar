@@ -648,7 +648,14 @@ fun ExerciseFormScreen(
                 id = awal?.id ?: 0,
                 name = name.trim(),
                 category = chosen,
-                instruction = instruction.trim(),
+                // Simpan mengikuti FORMAT YANG DIPILIH (pakaiLangkah), BUKAN
+                // menebak-nebak dari isi teks. Inilah penutup bug "tab sudah di
+                // Langkah bernomor tapi tersimpan sebagai paragraf": dulu baris
+                // ini cuma `instruction.trim()` apa adanya, jadi teks campur-aduk
+                // hasil paste ("1. a\nb\nc") tersimpan mentah dan terbaca
+                // paragraf. Sekarang PILIHAN TAB yang jadi hakim -- tak perlu
+                // dipancing klik dua kali lagi.
+                instruction = rapikanInstruksi(instruction, pakaiLangkah),
                 defaultType = type,
                 // Diurutkan ulang mengikuti urutan enum, bukan urutan kamu
                 // menekan chip. Supaya "Latissimus, Biceps" selalu tampil
@@ -1077,8 +1084,12 @@ fun ExerciseFormScreen(
                     // format -- yang berubah cuma nomornya.
                     onPakaiLangkahChange = { pakai ->
                         pakaiLangkah = pakai
-                        val isi = pecahLangkah(instruction).map { it.trim() }.filter { it.isNotBlank() }
-                        instruction = if (pakai) gabungLangkah(isi) else isi.joinToString("\n")
+                        // Ganti format = rapikan teks mengikuti pilihan baru.
+                        // Logika ini dulu ditulis inline di sini; sekarang dia
+                        // tinggal di SATU fungsi (`rapikanInstruksi`) yang juga
+                        // dipakai `simpan()`, supaya tombol ganti-format dan
+                        // tombol Simpan tak pernah beda pendapat.
+                        instruction = rapikanInstruksi(instruction, pakai)
                     },
                     youtube = youtube,
                     onYoutubeChange = { youtube = it },
@@ -1938,9 +1949,27 @@ private fun DaftarLangkah(
                 OutlinedTextField(
                     value = teks,
                     onValueChange = { baru ->
-                        onInstructionChange(
-                            gabungLangkah(langkah.toMutableList().also { it[i] = baru }),
-                        )
+                        // AUTO-SPLIT PASTE: kalau teks yang masuk mengandung
+                        // newline (paste multi-baris dari catatan/web), pecah
+                        // jadi beberapa langkah TERPISAH lalu sisipkan di posisi
+                        // kotak ini -- jangan biarkan menumpuk di satu kotak
+                        // sebagai baris-baris tak bernomor yang nanti terbaca
+                        // "paragraf". Ketikan biasa (tanpa newline) lewat jalur
+                        // lama supaya ringan dan kursor tidak melompat.
+                        if (baru.contains('\n')) {
+                            val potongan = baru.split("\n")
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                            val diperbarui = langkah.toMutableList().also {
+                                it.removeAt(i)
+                                it.addAll(i, potongan.ifEmpty { listOf("") })
+                            }
+                            onInstructionChange(gabungLangkah(diperbarui))
+                        } else {
+                            onInstructionChange(
+                                gabungLangkah(langkah.toMutableList().also { it[i] = baru }),
+                            )
+                        }
                     },
                     placeholder = { Text(text = stringResource(R.string.form_step_placeholder)) },
                     // singleLine WAJIB di sini. Satu Enter di dalam kolom ini

@@ -42,3 +42,28 @@ fun pecahLangkah(teks: String): List<String> =
 /** Daftar langkah jadi satu teks bernomor, siap disimpan ke kolom instruction. */
 fun gabungLangkah(langkah: List<String>): String =
     langkah.mapIndexed { i, teks -> "${i + 1}. $teks" }.joinToString("\n")
+
+/**
+ * Rapikan teks instruksi supaya BENTUKNYA mengikuti format yang SEDANG DIPILIH
+ * user (parameter `pakaiLangkah`), bukan ditebak-tebak dari isi teksnya. Buang
+ * baris kosong, buang nomor lama, lalu susun ulang: bernomor "1. .. 2. .." kalau
+ * `pakaiLangkah`, atau satu baris per langkah kalau paragraf.
+ *
+ * PELAJARAN HARI INI: kenapa fungsi ini ada, padahal isinya cuma tiga baris yang
+ * dulu ditulis langsung di tombol ganti-format. Karena tiga baris yang sama itu
+ * sekarang WAJIB dipakai di DUA tempat -- tombol ganti-format DAN `simpan()`. Dan
+ * begitu satu logika hidup di dua tempat, cepat atau lambat yang satu diubah dan
+ * yang lain lupa, lalu muncul bug yang cuma kambuh di salah satu jalur. Satu
+ * fungsi bernama = satu sumber kebenaran; dua pemanggil tidak akan pernah beda
+ * pendapat soal "apa artinya format ini".
+ *
+ * Inilah yang menutup bug yang kamu laporkan: tab sudah di "Langkah bernomor",
+ * tapi tersimpan sebagai paragraf. Sebabnya dulu `simpan()` menyimpan teks apa
+ * adanya, dan teks itu bisa campur aduk (baris pertama bernomor, sisanya tidak)
+ * setelah paste multi-baris. Sekarang yang menentukan bentuk akhir adalah PILIHAN
+ * TAB, bukan kebetulan isi teks -- teksnya yang mengikuti, bukan sebaliknya.
+ */
+fun rapikanInstruksi(teks: String, pakaiLangkah: Boolean): String {
+    val isi = pecahLangkah(teks).map { it.trim() }.filter { it.isNotBlank() }
+    return if (pakaiLangkah) gabungLangkah(isi) else isi.joinToString("\n")
+}

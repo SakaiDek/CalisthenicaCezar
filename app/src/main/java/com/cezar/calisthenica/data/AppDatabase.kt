@@ -10,6 +10,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.cezar.calisthenica.model.Equipment
 import com.cezar.calisthenica.model.Exercise
 import com.cezar.calisthenica.model.ProgramExerciseRef
+import com.cezar.calisthenica.model.SessionExerciseLog
+import com.cezar.calisthenica.model.SessionLog
 import com.cezar.calisthenica.model.WorkoutProgram
 
 /**
@@ -17,25 +19,32 @@ import com.cezar.calisthenica.model.WorkoutProgram
  * privat app di HP-mu (`/data/data/com.cezar.calisthenica/databases/`), tidak
  * bisa dibaca app lain.
  *
- * `version = 6` -- naik dari 5 karena ada TABEL BARU: `program_exercises`, si
- * jembatan yang menghubungkan program dengan gerakan. Lihat MIGRATION_5_6 di
- * bawah, dan baca komentar panjang di `ProgramExerciseRef.kt` untuk tahu kenapa
- * tabel ini harus ada.
+ * `version = 8` -- naik dari 7 karena ada TABEL ANAK baru: `session_exercise_logs`,
+ * halaman isi dari buku catatan. `session_logs` (versi 7) cuma menyimpan SAMPUL
+ * tiap sesi ("Sabtu, 3 set, 5 gerakan"); mulai versi 8 tiap sesi juga menyimpan
+ * DAFTAR GERAKANNYA satu per satu, supaya kartu Riwayat bisa dibuka dan
+ * menampilkan "gerakan apa saja yang kulakukan". Lihat MIGRATION_7_8 di bawah,
+ * dan komentar panjang di `SessionExerciseLog.kt` untuk tahu kenapa tabel ini
+ * MENYALIN nama gerakan (bukan foreign key ke `exercises`) -- prinsip snapshot
+ * yang sama yang membuat riwayat program 'fhfh' tetap utuh setelah dihapus.
  *
- * Ini tabel yang paling lama ditunggu di proyek ini. Sampai kemarin, `programs`
- * dan `exercises` hidup sendiri-sendiri tanpa saling mengenal -- itu sebabnya
- * tulisan "Struktur sesi" di kartu dasbor selama ini cuma teks yang saya
- * hardcode di `WorkoutCard.kt`. Mulai versi 6, teks itu punya sumber data.
+ * `version = 9` -- naik dari 8 karena tabel anak itu menambah SATU kolom:
+ * `fotoUri`, foto (thumbnail) gerakan saat sesi selesai. Ini yang membuat kartu
+ * Riwayat yang dibuka tak lagi cuma teks -- ada gambar kotak kecil di kiri tiap
+ * gerakan. Kolomnya `String?` (boleh kosong), jadi baris riwayat lama otomatis
+ * bernilai null tanpa merusak apa pun. Lihat MIGRATION_8_9 di bawah.
  *
- * `version = 5` dulu lahir dua kolom (`equipment.adjustableHeight` dan
+ * `version = 7` dulu lahir tabel `session_logs`, si buku catatan sesi.
+ * `version = 6` dulu lahir tabel `program_exercises`, si jembatan program-gerakan.
+ * `version = 5` lahir dua kolom (`equipment.adjustableHeight` dan
  * `exercises.equipmentHeight`). Naik ke 4 lahir tabel `equipment`.
  *
- * Perhatikan pola yang mulai kelihatan setelah empat migration: menambah TABEL
+ * Perhatikan pola yang makin kokoh setelah lima migration: menambah TABEL
  * BARU itu jenis perubahan yang PALING AMAN dari semuanya. Tidak ada satu pun
  * baris data lama yang dibaca, ditulis, atau dipindah -- tabel lamamu tidak
  * tahu-menahu ada tetangga baru. Bandingkan dengan MIGRATION_3_4 yang harus
  * menerjemahkan isi kolom yang sudah terisi; itu operasi yang bisa merusak data
- * dalam diam. Yang hari ini tidak bisa.
+ * dalam diam. Yang hari ini, sekali lagi, tidak bisa.
  *
  * Setiap kali BENTUK database berubah, angka ini WAJIB naik. Kalau tidak, Room
  * mendapati file di HP tidak sesuai cetak biru dan app langsung mati saat
@@ -43,7 +52,8 @@ import com.cezar.calisthenica.model.WorkoutProgram
  *
  * Dan naiknya angka itu selalu datang bersama TANGGUNG JAWAB: harus ada resep
  * yang memberitahu Room cara mengubah file lama jadi bentuk baru. Lihat
- * MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, dan MIGRATION_5_6 di bawah.
+ * MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, dan MIGRATION_6_7
+ * di bawah.
  *
  * `exportSchema = false` cuma mematikan peringatan Room soal menyimpan salinan
  * skema ke folder JSON. Berguna di tim besar untuk mengecek migration, tidak
@@ -62,8 +72,10 @@ import com.cezar.calisthenica.model.WorkoutProgram
         Exercise::class,
         Equipment::class,
         ProgramExerciseRef::class,
+        SessionLog::class,
+        SessionExerciseLog::class,
     ],
-    version = 6,
+    version = 9,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -76,6 +88,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun equipmentDao(): EquipmentDao
 
     abstract fun programExerciseDao(): ProgramExerciseDao
+
+    abstract fun sessionLogDao(): SessionLogDao
+
+    abstract fun sessionExerciseLogDao(): SessionExerciseLogDao
 
     companion object {
         // @Volatile + synchronized = supaya kalau dua bagian app minta
@@ -385,6 +401,148 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 6 -> 7: satu tabel baru lagi, `session_logs`. Nol baris lama disentuh.
+         *
+         * Ini migration kelima kita, dan sekarang polanya harusnya sudah jadi
+         * refleks: tabel baru = perubahan paling jinak. Tidak ada `ALTER`, tidak
+         * ada `REPLACE`, tidak ada penggabungan silang. Cuma satu `CREATE TABLE`,
+         * dan file lamamu di Poco F5 -- programs, exercises, equipment,
+         * program_exercises, semuanya -- lewat tanpa disentuh sedikit pun.
+         *
+         * SATU HAL YANG BEDA dari empat tabel sebelumnya, dan ini pantas kamu
+         * perhatikan karena ini pertama kalinya di proyek kita: kolom `catatan`
+         * DITULIS TANPA `NOT NULL`. Semua kolom lain di semua tabel kita selama
+         * ini NOT NULL. Kenapa yang ini pengecualian?
+         *
+         * Karena di `SessionLog.kt` tipenya `catatan: String?` -- tanda tanya itu
+         * artinya "boleh kosong betulan (null)". Sesi tanpa catatan itu keadaan
+         * paling normal, bukan kekurangan. Dan aturannya HARUS cocok dua arah:
+         * kolom Kotlin yang nullable WAJIB jadi kolom SQL tanpa NOT NULL, kolom
+         * Kotlin yang non-null WAJIB jadi kolom SQL dengan NOT NULL. Kalau meleset
+         * -- misal saya iseng menulis `catatan TEXT NOT NULL` padahal Kotlin-nya
+         * `String?` -- Room mendapati cetak biru dan file berbeda, dan app
+         * MENOLAK TERBUKA. Jadi perhatikan: `catatan` sendirian tanpa NOT NULL,
+         * delapan kolom lain memakainya.
+         *
+         * Sisanya persis pelajaran MIGRATION_5_6 yang barusan: TIDAK ADA `DEFAULT`
+         * satu pun (cetak biru `@Entity` tidak punya `@ColumnInfo(defaultValue)`,
+         * jadi Room mengharapkan kolom tanpa default -- menambah default malah
+         * bikin app menolak terbuka). `AUTOINCREMENT` supaya id riwayat tidak
+         * pernah didaur ulang. `IF NOT EXISTS` sebagai jaring pengaman kalau
+         * migration sempat setengah jalan. Dan tidak ada `arrayOf<Any?>` karena
+         * seluruh teks di bawah tulisan saya sendiri, nol potong dari input user.
+         *
+         * Yang juga TIDAK ada dan itu keputusan sadar: FOREIGN KEY ke `programs`.
+         * Alasan lengkapnya di komentar atas `SessionLog.kt` -- ringkasnya,
+         * riwayat itu catatan sejarah yang tidak boleh ikut terhapus/berubah saat
+         * programnya di-rename atau dihapus. `programId` disimpan sebagai angka
+         * biasa, bukan tali pengikat. Pola tanpa-FK yang sama dengan
+         * `program_exercises`.
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_logs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`programId` INTEGER NOT NULL, " +
+                        "`programNama` TEXT NOT NULL, " +
+                        "`waktuSelesaiMillis` INTEGER NOT NULL, " +
+                        "`tanggal` TEXT NOT NULL, " +
+                        "`durasiDetik` INTEGER NOT NULL, " +
+                        "`totalSetSelesai` INTEGER NOT NULL, " +
+                        "`totalGerakan` INTEGER NOT NULL, " +
+                        "`catatan` TEXT)",
+                )
+            }
+        }
+
+        /**
+         * 7 -> 8: satu tabel ANAK baru, `session_exercise_logs`. Nol baris lama
+         * disentuh. Ini migration keenam kita, dan polanya sekarang harusnya
+         * sudah jadi refleks: tabel baru = perubahan paling jinak, cuma satu
+         * `CREATE TABLE`, file lamamu di Poco F5 lewat tanpa disentuh.
+         *
+         * PERHATIKAN yang membedakannya dari MIGRATION_6_7 yang persis di atas:
+         * di sini SEMUA kolom `NOT NULL`, tidak ada satu pun pengecualian seperti
+         * `catatan` di `session_logs`. Sebabnya cocok-mencocokkan lagi dengan
+         * cetak biru: di `SessionExerciseLog.kt` TIDAK ADA satu properti pun yang
+         * bertanda tanya (`String?`) -- semuanya wajib terisi. Kolom Kotlin
+         * non-null WAJIB jadi kolom SQL NOT NULL; kalau ada yang meleset, Room
+         * mendapati file dan cetak biru beda, dan app MENOLAK TERBUKA.
+         *
+         * `tipe TEXT NOT NULL` karena `tipe: ExerciseType` disimpan Converters
+         * sebagai teks nama enum ("REPS"/"HOLD") -- tipe SQL harus cocok dengan
+         * yang DIHASILKAN Converters, bukan dengan tipe Kotlin-nya. Pola sama
+         * dengan kolom `tipe` di `program_exercises` (MIGRATION_5_6).
+         *
+         * Sisanya persis pelajaran dua migration terakhir: TIDAK ADA `DEFAULT`
+         * (cetak biru tak punya `@ColumnInfo(defaultValue)`, menambah default
+         * malah bikin app menolak terbuka). `AUTOINCREMENT` supaya id tak pernah
+         * didaur ulang. `IF NOT EXISTS` jaring pengaman kalau migration sempat
+         * setengah jalan. Tidak ada `arrayOf<Any?>` karena seluruh teks di bawah
+         * tulisan saya sendiri, nol potong dari input user.
+         *
+         * Dan yang TIDAK ada, keputusan sadar lagi: FOREIGN KEY ke `session_logs`.
+         * Alasan lengkapnya di komentar atas `SessionExerciseLog.kt`; ringkasnya,
+         * detail riwayat harus tetap utuh walau data induknya berubah, dan FK ikut
+         * diverifikasi kata-per-kata oleh Room. `sessionId` cukup angka biasa.
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_exercise_logs` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`sessionId` INTEGER NOT NULL, " +
+                        "`urutan` INTEGER NOT NULL, " +
+                        "`namaGerakan` TEXT NOT NULL, " +
+                        "`grup` INTEGER NOT NULL, " +
+                        "`tipe` TEXT NOT NULL, " +
+                        "`target` INTEGER NOT NULL, " +
+                        "`setCount` INTEGER NOT NULL)",
+                )
+            }
+        }
+
+        /**
+         * 8 -> 9: SATU kolom baru di tabel yang sudah ada, `session_exercise_logs`.
+         * Nol baris lama disentuh isinya. Ini kembali ke jenis migration paling
+         * murah -- `ALTER TABLE ... ADD COLUMN` -- setelah dua migration terakhir
+         * yang membuat tabel utuh.
+         *
+         * PERHATIKAN BAIK-BAIK: kolomnya `TEXT` TANPA `NOT NULL` dan TANPA
+         * `DEFAULT`. Ini pertama kalinya di `session_exercise_logs` ada kolom yang
+         * boleh kosong, dan alasannya menyambung persis pelajaran `catatan` di
+         * MIGRATION_6_7:
+         *
+         *   - Di `SessionExerciseLog.kt`, tipenya `fotoUri: String? = null` --
+         *     tanda tanya = boleh null. Kolom Kotlin nullable WAJIB jadi kolom SQL
+         *     TANPA NOT NULL. Kalau saya iseng menulis `NOT NULL`, Room mendapati
+         *     cetak biru dan file beda, dan app MENOLAK TERBUKA.
+         *
+         *   - TANPA `DEFAULT` juga wajib: cetak biru `@Entity`-nya tidak punya
+         *     `@ColumnInfo(defaultValue = ...)`, jadi Room mengharapkan kolom tanpa
+         *     default. Baris riwayat LAMA (yang dibuat sebelum kolom ini ada) akan
+         *     otomatis bernilai NULL setelah ALTER -- dan itu memang yang kita mau:
+         *     sesi lama tidak punya foto, jadi thumbnail-nya jatuh ke placeholder
+         *     kosong. Null di sini bukan kerusakan, itu jawaban yang jujur.
+         *
+         * Bandingkan dengan MIGRATION_2_3 yang memakai `NOT NULL DEFAULT ''`:
+         * di sana kolomnya `List<Equipment>` (non-null) sehingga WAJIB punya nilai
+         * bawaan. Di sini nullable, jadi justru TIDAK BOLEH. Aturannya selalu:
+         * ikuti apa yang ada (atau tidak ada) di `@Entity`, bukan selera.
+         *
+         * Tidak ada `arrayOf<Any?>` karena seluruh teks di bawah tulisan saya
+         * sendiri, nol potong dari input user.
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE session_exercise_logs ADD COLUMN fotoUri TEXT",
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -427,13 +585,13 @@ abstract class AppDatabase : RoomDatabase() {
                     //  tidak terpakai. Resep lama itu satu-satunya jalan pulang
                     //  bagi HP yang lama tidak di-update.
                     //
-                    //  Hari ini rantainya jadi empat: 2->3, 3->4, 4->5, 5->6.
-                    //  Kalau suatu HP masih memegang file versi 2, Room
-                    //  menjalankan keempatnya berurutan sampai sampai ke 6. Itu
+                    //  Hari ini rantainya jadi tujuh: 2->3, 3->4, 4->5, 5->6,
+                    //  6->7, 7->8, 8->9. Kalau suatu HP masih memegang file versi 2,
+                    //  Room menjalankan ketujuhnya berurutan sampai ke 9. Itu
                     //  sebabnya MIGRATION_2_3 yang tampak "sudah tidak relevan"
                     //  tetap harus hidup di file ini.
                     // ==========================================================
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .fallbackToDestructiveMigration()
                     .build().also { instance = it }
             }

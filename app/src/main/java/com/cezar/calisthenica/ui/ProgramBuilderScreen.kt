@@ -1,8 +1,10 @@
 package com.cezar.calisthenica.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,6 +30,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.materialIcon
+import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -56,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.room.withTransaction
 import com.cezar.calisthenica.R
 import com.cezar.calisthenica.data.AppDatabase
 import com.cezar.calisthenica.data.BarisRakitan
@@ -146,7 +151,26 @@ fun ProgramBuilderScreen(
      * kalau programnya ganti."
      */
     val rakitanFlow = remember(program.id) { dao.observeRakitan(program.id) }
-    val rakitan by rakitanFlow.collectAsState(initial = emptyList())
+    /*
+     * PERBAIKAN GLITCH MASUK (kedip "Program ini masih kosong" sekejap).
+     *
+     * Dulu di sini `initial = emptyList()`. Kelihatan tak berbahaya, tapi dia
+     * BOHONG di frame pertama: sebelum database sempat menjawab, `rakitan` sudah
+     * berisi "list kosong" -- dan layar tidak bisa membedakan "database belum
+     * jawab" dari "program ini memang kosong". Akibatnya, tiap kali kamu masuk
+     * layar ini, RingkasanAtas menggambar pesan "Program ini masih kosong" satu
+     * kedipan, lalu Flow mengirim data asli dan daftar sebenarnya menyeruak
+     * masuk. Itulah glitch yang kamu lihat.
+     *
+     * `initial = null` menghapus kebohongan itu. Sekarang ada TIGA keadaan yang
+     * jujur, persis pola yang sudah kita pakai di RiwayatScreen & katalog:
+     *   null        -> database BELUM menjawab. Jangan gambar apa-apa dulu.
+     *   list kosong -> database sudah jawab, program ini memang belum berisi.
+     *   list berisi -> gambar daftarnya.
+     * Room lokal menjawab dalam 1-2 frame, jadi keadaan `null` itu tak terlihat
+     * mata -- yang HILANG cuma kedipan pesan yang salah tadi.
+     */
+    val rakitan by rakitanFlow.collectAsState(initial = null)
 
     val katalogFlow = remember { db.exerciseDao().observeAll() }
     val katalog by katalogFlow.collectAsState(initial = emptyList())
@@ -159,6 +183,82 @@ fun ProgramBuilderScreen(
     var sedangDiatur by remember { mutableStateOf<BarisRakitan?>(null) }
 
     val jarakBawah = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+    /*
+     * ========================= UNDO / REDO =========================
+     * PELAJARAN HARI INI: undo yang benar itu soal MEMOTRET, bukan soal menghafal
+     * "kebalikan tiap aksi".
+     *
+     * Ada dua mazhab membuat undo. Yang pertama: catat aksinya ("tadi geser baris
+     * 2 ke atas"), lalu saat undo, kerjakan kebalikannya. Kedengarannya hemat,
+     * tapi tiap jenis aksi butuh rumus kebalikannya sendiri -- kebalikan duplikat
+     * itu hapus, kebalikan hapus itu sisip-di-posisi-lama-dengan-id-lama, dan tiap
+     * rumus itu satu peluang bug baru.
+     *
+     * Mazhab kedua, yang kita pakai: sebelum tiap perubahan, POTRET seluruh isi
+     * program apa adanya (`List<ProgramExerciseRef>`) dan tumpuk potretnya. Undo =
+     * kembalikan program ke potret sebelumnya. Redo = maju lagi. SATU jalur pulih
+     * untuk SEMUA jenis aksi; tak peduli tadi geser, duplikat, hapus, tambah, atau
+     * ubah angka. Lebih boros memori? Ya, tapi satu potret cuma belasan baris data
+     * kecil, dan di HP-mu itu tak terasa. Kesederhanaan yang tak bisa salah lebih
+     * berharga daripada hemat yang rapuh.
+     *
+     * `remember(program.id)`: riwayat undo ikut program. Pindah program, sejarah
+     * mulai bersih -- kamu tak sengaja meng-undo program yang salah.
+     *
+     * CATATAN JUJUR (utang MVP yang kubuka): dua tumpukan ini hidup di MEMORI,
+     * bukan database. Kalau HP diputar (rotasi) atau app ditutup, sejarah undo
+     * hilang -- programnya sendiri aman di disk, cuma jejak langkahnya yang lupa.
+     * Menyimpannya lintas-rotasi butuh bikin `ProgramExerciseRef` jadi Parcelable
+     * + Saver sendiri; itu satu ronde tersendiri, dan untuk "batalkan gerakan tak
+     * sengaja" saat kamu sedang menyusun, undo yang hidup se-sesi sudah cukup.
+     */
+    var undoStack by remember(program.id) {
+        mutableStateOf<List<List<ProgramExerciseRef>>>(emptyList())
+    }
+    var redoStack by remember(program.id) {
+        mutableStateOf<List<List<ProgramExerciseRef>>>(emptyList())
+    }
+
+    // Panggil TEPAT SEBELUM tiap aksi yang mengubah daftar. Merekam potret daftar
+    // SEKARANG ke tumpukan undo, lalu mengosongkan redo -- begitu kamu melangkah
+    // baru, jalur "maju" yang lama tidak berlaku lagi (persis tombol undo/redo di
+    // editor teks mana pun).
+    val catatUndo: () -> Unit = {
+        undoStack = undoStack + listOf(rakitan.orEmpty().map { it.ref })
+        redoStack = emptyList()
+    }
+
+    // Tulis ulang SELURUH isi program ini supaya sama persis dengan `potret`.
+    // Hapus-semua lalu sisip-semua dalam SATU transaksi. `insertSemua` menyisipkan
+    // dengan id ASLI dari potret (bukan 0), jadi baris yang tadi dihapus benar-
+    // benar PULIH dengan identitas yang sama, bukan lahir sebagai kembar ber-id
+    // baru -- itu sebabnya redo pun bisa memasang ulang salinan yang tepat.
+    val pulihkan: (List<ProgramExerciseRef>) -> Unit = { potret ->
+        scope.launch {
+            db.withTransaction {
+                dao.hapusSemuaDiProgram(program.id)
+                dao.insertSemua(potret)
+            }
+        }
+    }
+
+    val undo: () -> Unit = {
+        if (undoStack.isNotEmpty()) {
+            // Keadaan SEKARANG jadi bekal redo, lalu mundur ke potret teratas.
+            redoStack = redoStack + listOf(rakitan.orEmpty().map { it.ref })
+            pulihkan(undoStack.last())
+            undoStack = undoStack.dropLast(1)
+        }
+    }
+    val redo: () -> Unit = {
+        if (redoStack.isNotEmpty()) {
+            undoStack = undoStack + listOf(rakitan.orEmpty().map { it.ref })
+            pulihkan(redoStack.last())
+            redoStack = redoStack.dropLast(1)
+        }
+    }
+    // ===============================================================
 
     /*
      * PEMILIH GERAKAN, digambar sebagai `return` LEBIH AWAL.
@@ -183,6 +283,11 @@ fun ProgramBuilderScreen(
             grup = tujuan,
             katalog = katalog,
             onPilih = { gerakan ->
+                // Potret DULU, di thread utama, SEBELUM coroutine menyisipkan.
+                // Kalau catatUndo() ikut masuk ke dalam scope.launch, dia akan
+                // memotret keadaan yang barangkali sudah berubah -- rekam jejaknya
+                // harus diambil pada detik user menekan, bukan nanti.
+                catatUndo()
                 scope.launch {
                     /*
                      * Tanya database dulu nomor urut terakhir di grup ini, baru
@@ -273,40 +378,66 @@ fun ProgramBuilderScreen(
         // navigasi. Yang membayar jarak bawahnya `contentPadding` di bawah.
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
     ) { innerPadding ->
-        LazyColumn(
+        /*
+         * Gerbang tiga-keadaan. `rakitan` sekarang bertipe nullable:
+         *   null       -> database BELUM menjawab (sekejap saat layar dibuka).
+         *                 Jangan gambar apa-apa; keluar dari lambda Scaffold.
+         *   list kosong -> sudah dijawab, programnya memang belum berisi gerakan.
+         *   list berisi -> gambar daftarnya.
+         *
+         * Inilah obat "glitch/flash" yang kamu lihat: dulu `initial = emptyList()`
+         * membuat frame PERTAMA selalu terlihat kosong, jadi "Program ini masih
+         * kosong" berkedip sekejap sebelum data asli tiba. Dengan null sebagai
+         * keadaan awal, frame pertama tak menggambar teks kosong itu sama sekali.
+         *
+         * `return@Scaffold` boleh di sini (beda dengan `return` di atas): ini cuma
+         * keluar dari lambda konten Scaffold, bukan dari seluruh Composable, jadi
+         * tak ada `remember` yang tersalip.
+         */
+        val isi = rakitan ?: return@Scaffold
+
+        // Box: lapisan dasar (daftar) + lapisan mengambang (bilah Undo/Redo). Bilah
+        // ditaruh di ATAS daftar via align(BottomCenter), jadi ia ikut diam di
+        // layar walau daftarnya di-scroll -- user tak perlu gulir ke mana-mana
+        // untuk membatalkan langkah.
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 8.dp,
-                // Tidak ada FAB di layar ini, jadi cukup jarak nyaman + tinggi
-                // bilah navigasi. Angka 96dp di layar lain itu ruang untuk FAB;
-                // menirunya di sini cuma bikin lubang kosong di bawah.
-                bottom = 24.dp + jarakBawah,
-            ),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item(key = "ringkasan") {
-                RingkasanAtas(rakitan = rakitan)
-            }
-
-            /*
-             * `forEach` di dalam LazyColumn. Boleh, dan di sini justru benar.
-             *
-             * Yang dilarang itu membuat RIBUAN item lewat loop biasa, karena
-             * blok ini dijalankan sekaligus untuk mendaftarkan semua item.
-             * Grupnya cuma tiga dan jumlahnya tidak akan pernah tumbuh dari data
-             * user -- yang panjang cuma `items(...)` di dalamnya, dan itu memang
-             * dimalasi (lazy) oleh LazyColumn seperti seharusnya.
-             */
-            Grup.urut().forEach { grup ->
-                val isiGrup = rakitan.filter { it.ref.grup == grup.nomor }
-
-                item(key = "kepala-${grup.nomor}") {
-                    KepalaGrup(grup = grup, isi = isiGrup)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 8.dp,
+                    // 96dp: beda dengan sebelumnya (24dp). Sekarang ada bilah
+                    // Undo/Redo mengambang di bawah; ruang ekstra ini yang menjamin
+                    // kartu terakhir tidak tersembunyi di belakang bilah itu saat
+                    // daftar di-scroll mentok.
+                    bottom = 96.dp + jarakBawah,
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item(key = "ringkasan") {
+                    RingkasanAtas(rakitan = isi)
                 }
+
+                /*
+                 * `forEach` di dalam LazyColumn. Boleh, dan di sini justru benar.
+                 *
+                 * Yang dilarang itu membuat RIBUAN item lewat loop biasa, karena
+                 * blok ini dijalankan sekaligus untuk mendaftarkan semua item.
+                 * Grupnya cuma tiga dan jumlahnya tidak akan pernah tumbuh dari data
+                 * user -- yang panjang cuma `items(...)` di dalamnya, dan itu memang
+                 * dimalasi (lazy) oleh LazyColumn seperti seharusnya.
+                 */
+                Grup.urut().forEach { grup ->
+                    val isiGrup = isi.filter { it.ref.grup == grup.nomor }
+
+                    item(key = "kepala-${grup.nomor}") {
+                        KepalaGrup(grup = grup, isi = isiGrup)
+                    }
 
                 /*
                  * `key = { _, b -> b.ref.id }` -- kuncinya id baris, BUKAN
@@ -321,11 +452,62 @@ fun ProgramBuilderScreen(
                     key = { _, b -> b.ref.id },
                 ) { index, baris ->
                     BarisRakit(
+                        // `animateItem()` -- animasi geser yang mulus saat urutan
+                        // berubah. Ini pengganti STABIL untuk `animateItemPlacement()`
+                        // yang kamu sebut: sejak Compose Foundation 1.7.0 (versi yang
+                        // kita pin), yang lama itu sudah usang (deprecated) dan masih
+                        // eksperimental -- harus pasang @OptIn segala. `animateItem()`
+                        // sudah resmi, tak perlu import maupun opt-in, dan dia
+                        // menganimasikan kemunculan + kepindahan + penghilangan baris
+                        // sekaligus. Karena baris kita sudah ber-`key = id`, Compose
+                        // tahu baris mana yang benar-benar geser dan mana yang cuma
+                        // ganti nomor -- yang geser diberi transisi, yang lain diam.
+                        //
+                        // `placementSpec = tween(260)`: default bawaannya spring yang
+                        // cukup cepat sampai kadang terasa "lompat". tween 260ms bikin
+                        // gesernya PANJANG sedikit dan konstan, jadi mata benar-benar
+                        // menangkap kartunya bergerak -- ini yang kamu minta saat
+                        // bilang "transisinya mulus, bukan instan".
+                        modifier = Modifier.animateItem(
+                            placementSpec = tween(durationMillis = 260),
+                        ),
                         baris = baris,
                         bisaNaik = index > 0,
                         bisaTurun = index < isiGrup.lastIndex,
                         onKlik = { sedangDiatur = baris },
+                        onDuplikat = {
+                            catatUndo()
+                            scope.launch {
+                                /*
+                                 * Sisip + nomori-ulang dalam SATU transaksi.
+                                 *
+                                 * `copy(id = 0)` itu kuncinya: id 0 = "baris baru",
+                                 * jadi Room meng-INSERT (bukan menimpa yang lama) dan
+                                 * mengembalikan id asli si salinan. Semua kolom lain
+                                 * -- gerakan, tipe, target, set, istirahat, catatan --
+                                 * ikut tersalin apa adanya.
+                                 *
+                                 * Salinannya kita selipkan di posisi `index + 1`
+                                 * (tepat di bawah aslinya), lalu SELURUH grup dinomori
+                                 * ulang dari 1, idiom yang sama dengan `onGeser`.
+                                 * `withTransaction` bikin insert + updateSemua jadi
+                                 * satu paket: kalau app mati di tengah, tak ada
+                                 * salinan yatim tanpa nomor.
+                                 */
+                                db.withTransaction {
+                                    val idBaru = dao.insert(baris.ref.copy(id = 0))
+                                    val refBaru = isiGrup.map { it.ref }.toMutableList()
+                                    refBaru.add(index + 1, baris.ref.copy(id = idBaru))
+                                    dao.updateSemua(
+                                        refBaru.mapIndexed { posisi, r ->
+                                            r.copy(urutan = posisi + 1)
+                                        },
+                                    )
+                                }
+                            }
+                        },
                         onGeser = { arah ->
+                            catatUndo()
                             val tukar = isiGrup.toMutableList()
                             val tujuanIndex = index + arah
                             val ambil = tukar[index]
@@ -364,6 +546,21 @@ fun ProgramBuilderScreen(
                     BarisTambahGerakan(onKlik = { grupTujuan = grup })
                 }
             }
+            }
+
+            // Bilah Undo/Redo mengambang. `Modifier.align` di sini itu milik
+            // BoxScope -- jadi bilah ditempel ke tepi bawah-tengah Box, melayang
+            // di atas daftar. Jaraknya dari dasar = 16dp napas + tinggi bilah
+            // navigasi HP, biar tak ketindih tombol sistem.
+            BilahUndoRedo(
+                bisaUndo = undoStack.isNotEmpty(),
+                bisaRedo = redoStack.isNotEmpty(),
+                onUndo = undo,
+                onRedo = redo,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 16.dp + jarakBawah),
+            )
         }
     }
 
@@ -372,10 +569,12 @@ fun ProgramBuilderScreen(
         DialogParameter(
             baris = diatur,
             onSimpan = { refBaru ->
+                catatUndo()
                 sedangDiatur = null
                 scope.launch { dao.update(refBaru) }
             },
             onKeluarkan = {
+                catatUndo()
                 sedangDiatur = null
                 scope.launch { dao.delete(diatur.ref) }
             },
@@ -464,11 +663,13 @@ private fun BarisRakit(
     bisaTurun: Boolean,
     onKlik: () -> Unit,
     onGeser: (Int) -> Unit,
+    onDuplikat: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val ref = baris.ref
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onKlik),
         color = MaterialTheme.colorScheme.surfaceContainer,
@@ -542,6 +743,17 @@ private fun BarisRakit(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
+
+            // Salin/Duplikat: bikin satu baris kembar tepat di bawah baris ini.
+            // Berguna kalau satu gerakan mau diulang dengan sedikit ubahan angka
+            // -- tinggal duplikat lalu sunting salinannya, tak perlu cari ulang
+            // dari katalog.
+            IconButton(onClick = onDuplikat) {
+                Icon(
+                    imageVector = IconSalin,
+                    contentDescription = stringResource(R.string.rakit_duplikat),
+                )
             }
 
             Column {
@@ -946,3 +1158,134 @@ internal fun labelDurasi(detik: Int): String =
     } else {
         stringResource(R.string.rakit_menit, (detik + 59) / 60)
     }
+
+/*
+ * PELAJARAN HARI INI: kenapa ikon "Salin" ini kita GAMBAR sendiri, bukan tinggal
+ * `Icons.Default.ContentCopy`.
+ *
+ * `ContentCopy` itu ada, tapi bukan di `material-icons-core` yang kita pakai --
+ * dia tinggal di `material-icons-extended`. Paket extended itu memuat RIBUAN ikon
+ * sekaligus; menariknya cuma demi satu ikon berarti waktu build lebih lama dan
+ * APK lebih gemuk, dua hal yang paling kita jaga di laptop 8GB. Jadi kita ikuti
+ * jalan yang sudah kita tempuh untuk ikon "penuhi layar" di FotoLayarPenuh.kt:
+ * gambar sendiri pakai `materialIcon`/`materialPath`.
+ *
+ * Bentuknya dua lembar yang bertumpuk: satu "siku" kiri-atas yang mengintip di
+ * belakang (itu yang bikin mata langsung baca "ada DUA lembar"), plus satu
+ * bingkai lembar depan. Bingkai depannya digambar berongga -- garis luar searah
+ * jarum jam, lubang dalam arah berlawanan -- supaya isinya kosong dan terbaca
+ * sebagai "lembar", bukan kotak pejal.
+ */
+internal val IconSalin = materialIcon(name = "Filled.Salin") {
+    materialPath {
+        // Lembar belakang: cuma siku kiri-atas yang kelihatan di balik lembar depan.
+        moveTo(2f, 1f)
+        lineTo(16f, 1f)
+        lineTo(16f, 5f)
+        lineTo(6f, 5f)
+        lineTo(6f, 17f)
+        lineTo(2f, 17f)
+        close()
+        // Lembar depan: garis luar (searah jarum jam).
+        moveTo(6f, 5f)
+        lineTo(21f, 5f)
+        lineTo(21f, 23f)
+        lineTo(6f, 23f)
+        close()
+        // Lubang di tengah lembar depan (arah berlawanan = mengurangi isi, jadi
+        // yang tersisa cuma bingkai tipis).
+        moveTo(8f, 7f)
+        lineTo(8f, 21f)
+        lineTo(19f, 21f)
+        lineTo(19f, 7f)
+        close()
+    }
+}
+
+/**
+ * BILAH UNDO/REDO MENGAMBANG. Dipanggil di dalam Box layar perakit; pemanggilnya
+ * yang menempelkan `Modifier.align(BottomCenter)` supaya ia melayang di bawah.
+ *
+ * PELAJARAN HARI INI: tombol yang mati harus KELIHATAN mati. Kedua tombol pakai
+ * parameter `enabled` -- saat tumpukan kosong, `enabled = false` dan Material 3
+ * otomatis meredupkan ikonnya + mematikan sentuhannya. User jadi tahu "tak ada
+ * lagi yang bisa dibatalkan" tanpa saya perlu menulis logika warna sendiri.
+ *
+ * Bentuknya satu pil (`RoundedCornerShape` besar) dengan `shadowElevation` supaya
+ * benar-benar terlihat MENGAPUNG di atas daftar, bukan menyatu dengannya.
+ */
+@Composable
+private fun BilahUndoRedo(
+    bisaUndo: Boolean,
+    bisaRedo: Boolean,
+    onUndo: () -> Unit,
+    onRedo: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 3.dp,
+        shadowElevation = 6.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onUndo, enabled = bisaUndo) {
+                Icon(
+                    imageVector = IconUrungkan,
+                    contentDescription = stringResource(R.string.rakit_undo),
+                )
+            }
+            IconButton(onClick = onRedo, enabled = bisaRedo) {
+                Icon(
+                    imageVector = IconUlangi,
+                    contentDescription = stringResource(R.string.rakit_redo),
+                )
+            }
+        }
+    }
+}
+
+/*
+ * Ikon UNDO & REDO, lagi-lagi DIGAMBAR sendiri dengan alasan yang sama seperti
+ * IconSalin di atas: `Icons.AutoMirrored.Filled.Undo`/`Redo` tinggal di
+ * `material-icons-extended`, dan paket itu tetap kita HINDARI supaya build ringan
+ * di laptop 8GB. Jalur datanya kuambil dari bentuk resmi ikon Material "undo" &
+ * "redo" (viewport 24x24), ditranskrip ke DSL `materialPath`: satu panah
+ * melengkung yang berputar balik ke kiri (undo) dan cerminnya ke kanan (redo).
+ */
+internal val IconUrungkan = materialIcon(name = "Filled.Urungkan") {
+    materialPath {
+        moveTo(12.5f, 8f)
+        curveToRelative(-2.65f, 0f, -5.05f, 0.99f, -6.9f, 2.6f)
+        lineTo(2f, 7f)
+        verticalLineToRelative(9f)
+        horizontalLineToRelative(9f)
+        lineToRelative(-3.62f, -3.62f)
+        curveToRelative(1.39f, -1.16f, 3.16f, -1.88f, 5.12f, -1.88f)
+        curveToRelative(3.54f, 0f, 6.55f, 2.31f, 7.6f, 5.5f)
+        lineToRelative(2.37f, -0.78f)
+        curveTo(21.08f, 11.03f, 17.15f, 8f, 12.5f, 8f)
+        close()
+    }
+}
+
+internal val IconUlangi = materialIcon(name = "Filled.Ulangi") {
+    materialPath {
+        moveTo(18.4f, 10.6f)
+        curveTo(16.55f, 8.99f, 14.15f, 8f, 11.5f, 8f)
+        curveToRelative(-4.65f, 0f, -8.58f, 3.03f, -9.96f, 7.22f)
+        lineTo(3.9f, 16f)
+        curveToRelative(1.05f, -3.19f, 4.05f, -5.5f, 7.6f, -5.5f)
+        curveToRelative(1.95f, 0f, 3.73f, 0.72f, 5.12f, 1.88f)
+        lineTo(13f, 16f)
+        horizontalLineToRelative(9f)
+        verticalLineTo(7f)
+        lineToRelative(-3.6f, 3.6f)
+        close()
+    }
+}

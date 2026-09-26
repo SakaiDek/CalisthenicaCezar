@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,11 +27,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -55,8 +60,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.cezar.calisthenica.data.AppDatabase
 import com.cezar.calisthenica.model.WorkoutProgram
 import com.cezar.calisthenica.ui.ExerciseCatalogScreen
+import com.cezar.calisthenica.ui.KalenderDasborSection
 import com.cezar.calisthenica.ui.NewProgramDialog
 import com.cezar.calisthenica.ui.ProgramBuilderScreen
+import com.cezar.calisthenica.ui.RiwayatScreen
 import com.cezar.calisthenica.ui.SessionRunnerScreen
 import com.cezar.calisthenica.ui.WorkoutCard
 import com.cezar.calisthenica.ui.theme.CalisthenicaTheme
@@ -225,8 +232,8 @@ class MainActivity : ComponentActivity() {
 /**
  * Daftar layar yang ada. Enum biasa, sesederhana itu.
  *
- * Kenapa cukup enum: karena kedua layar ini tidak perlu MEMBAWA data apa pun.
- * "Buka katalog" ya buka katalog, titik.
+ * Kenapa cukup enum: karena ketiga layar ini tidak perlu MEMBAWA data apa pun.
+ * "Buka katalog" ya buka katalog, "buka riwayat" ya buka riwayat, titik.
  *
  * KOREKSI, 5 September 2026 -- baca ini, karena isinya pelajaran tentang cara
  * membaca kode, bukan cuma tentang navigasi.
@@ -247,34 +254,113 @@ class MainActivity : ComponentActivity() {
  * sebagai janji; komentar basi bikin kamu -- atau saya, tiga bulan lagi --
  * menambah library yang tidak dibutuhkan cuma karena ada tulisan yang menyuruh.
  */
-private enum class Screen { HOME, CATALOG }
+private enum class Screen { HOME, CATALOG, RIWAYAT }
 
 /**
- * Pemegang keputusan "layar mana yang tampil".
+ * Pemegang keputusan "layar mana yang tampil" + tuan rumah Bilah Navigasi Bawah.
  *
- * Cuma satu variabel. Tidak ada NavController, tidak ada back stack, tidak ada
- * rute berupa teks yang bisa salah ketik dan baru ketahuan saat app jalan.
+ * PERUBAHAN BESAR (Ronde 2, 26 Sept 2026): navigasi antar-layar utama PINDAH dari
+ * tombol pojok kanan atas ke Bilah Navigasi Bawah yang nempel di dasar layar --
+ * lebih gampang dijangkau jempol, gaya app fitness papan atas. Tiga tab: Dasbor,
+ * Katalog, Riwayat.
+ *
+ * KENAPA `jalankanProgram` & `rakitProgram` DIANGKAT KE SINI dari dalam HomeScreen:
+ * dua sub-alur itu IMERSIF -- runner latihan dan perakit program mengambil SATU
+ * layar penuh TANPA bilah nav di bawahnya. Kalau state-nya tetap di HomeScreen
+ * (yang sekarang jadi isi Scaffold ber-bilah), bilah nav bakal ikut nongol di
+ * bawah timer. Jadi dua sub-alur ini diperiksa PALING DULU: gambar layar penuh
+ * lalu `return`, sebelum Scaffold bilah nav dibangun. Sesi menang atas perakit
+ * (urutan sama seperti dulu): kalau dua-duanya kebetulan terisi, timer yang tampil.
  */
 @Composable
 private fun CalisthenicaApp() {
     var screen by remember { mutableStateOf(Screen.HOME) }
+    var rakitProgram by remember { mutableStateOf<WorkoutProgram?>(null) }
+    var jalankanProgram by remember { mutableStateOf<WorkoutProgram?>(null) }
 
-    // Tombol Back HP diurus manual karena kita tidak memakai library navigasi.
-    // `enabled` penting: di HOME, BackHandler ini harus MENGALAH supaya Back
-    // tetap menutup app seperti seharusnya. Kalau selalu aktif, app-mu jadi
-    // tidak bisa ditutup dengan Back -- bug yang bikin user kesal dan susah
-    // dilacak karena tidak ada crash sama sekali.
+    // Sub-alur imersif diperiksa sebelum apa pun digambar. `return` di sini AMAN
+    // karena ketiga `remember` di atas SUDAH dieksekusi -- komposisi berbasis
+    // posisi tidak kehilangan apa pun; yang dilewati cuma Scaffold di bawah.
+    val sedangJalan = jalankanProgram
+    if (sedangJalan != null) {
+        SessionRunnerScreen(program = sedangJalan, onBack = { jalankanProgram = null })
+        return
+    }
+    val sedangRakit = rakitProgram
+    if (sedangRakit != null) {
+        ProgramBuilderScreen(program = sedangRakit, onBack = { rakitProgram = null })
+        return
+    }
+
+    // Tombol Back HP: di tab selain Dasbor, Back kembali ke Dasbor; di Dasbor, Back
+    // MENGALAH supaya app bisa ditutup seperti biasa. Bilah nav jadi jalan utama,
+    // tapi Back tetap dihormati supaya konsisten dengan kebiasaan Android.
     BackHandler(enabled = screen != Screen.HOME) { screen = Screen.HOME }
 
-    when (screen) {
-        Screen.HOME -> HomeScreen(onOpenCatalog = { screen = Screen.CATALOG })
-        Screen.CATALOG -> ExerciseCatalogScreen(onBack = { screen = Screen.HOME })
+    Scaffold(
+        bottomBar = { BilahNavigasiBawah(aktif = screen, onPilih = { screen = it }) },
+        // Insets dinolkan DI SINI supaya tidak dobel: tiap layar anak (Dasbor,
+        // Katalog, Riwayat) sudah mengurus inset-nya sendiri lewat Scaffold
+        // masing-masing. Yang tetap kita ambil dari Scaffold luar cuma TINGGI bilah
+        // nav-nya, yang otomatis sudah masuk ke `padding` di bawah ini.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { padding ->
+        // Box + padding: isi tab digambar DI ATAS bilah nav, tak pernah ketutup.
+        Box(modifier = Modifier.padding(padding)) {
+            when (screen) {
+                Screen.HOME -> HomeScreen(
+                    onRakit = { program -> rakitProgram = program },
+                    onMulai = { program -> jalankanProgram = program },
+                )
+                Screen.CATALOG -> ExerciseCatalogScreen(onBack = { screen = Screen.HOME })
+                Screen.RIWAYAT -> RiwayatScreen(onBack = { screen = Screen.HOME })
+            }
+        }
+    }
+}
+
+/**
+ * Bilah Navigasi Bawah Material 3. Tiga tujuan utama, ikon dari material-icons-CORE
+ * (aturan lama tetap berlaku: -extended DILARANG demi APK & waktu build ringan):
+ *   - Dasbor  -> Home       (rumah = titik mula; di sinilah streak & kalender dipajang)
+ *   - Katalog -> List       (daftar gerakan; ikon yang sama dengan tombol lama)
+ *   - Riwayat -> DateRange  (riwayat memang dibaca per tanggal)
+ *
+ * `NavigationBar`/`NavigationBarItem` itu komponen M3 yang STABIL -- tidak butuh
+ * `@OptIn` seperti TopAppBar. `selected` otomatis menyalakan sorotan (pil di balik
+ * ikon + warna aktif), jadi kita tidak menggambar highlight manual. Label sengaja
+ * dibiarkan selalu tampil (default `alwaysShowLabel = true`) sesuai permintaanmu.
+ */
+@Composable
+private fun BilahNavigasiBawah(aktif: Screen, onPilih: (Screen) -> Unit) {
+    NavigationBar {
+        NavigationBarItem(
+            selected = aktif == Screen.HOME,
+            onClick = { onPilih(Screen.HOME) },
+            icon = { Icon(Icons.Default.Home, contentDescription = null) },
+            label = { Text(text = stringResource(R.string.nav_dasbor)) },
+        )
+        NavigationBarItem(
+            selected = aktif == Screen.CATALOG,
+            onClick = { onPilih(Screen.CATALOG) },
+            icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+            label = { Text(text = stringResource(R.string.nav_katalog)) },
+        )
+        NavigationBarItem(
+            selected = aktif == Screen.RIWAYAT,
+            onClick = { onPilih(Screen.RIWAYAT) },
+            icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+            label = { Text(text = stringResource(R.string.nav_riwayat)) },
+        )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onOpenCatalog: () -> Unit) {
+fun HomeScreen(
+    onRakit: (WorkoutProgram) -> Unit,
+    onMulai: (WorkoutProgram) -> Unit,
+) {
     val context = LocalContext.current
 
     // remember(context) = buka database SEKALI, bukan tiap kali layar
@@ -410,6 +496,17 @@ fun HomeScreen(onOpenCatalog: () -> Unit) {
             TopAppBar(
                 title = { Text(text = stringResource(R.string.home_title)) },
                 actions = {
+                    // Pintu ke Riwayat. Ikon DateRange (kalender) dipilih karena
+                    // riwayat memang dibaca per tanggal, dan sengaja pakai ikon
+                    // dari material-icons-CORE, bukan -extended: paket extended
+                    // itu ribuan ikon yang menggelembungkan APK cuma demi satu
+                    // gambar. Aturan lama yang tetap berlaku.
+                    IconButton(onClick = onOpenRiwayat) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = stringResource(R.string.riwayat_open),
+                        )
+                    }
                     // Pintu ke katalog. Ditaruh di TopAppBar, bukan jadi kartu
                     // di daftar program: katalog itu alat, bukan salah satu
                     // program latihanmu. Menaruhnya di daftar bakal bikin dua

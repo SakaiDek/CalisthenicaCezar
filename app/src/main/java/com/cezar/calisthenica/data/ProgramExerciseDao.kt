@@ -174,6 +174,28 @@ interface ProgramExerciseDao {
     @Insert
     suspend fun insert(ref: ProgramExerciseRef): Long
 
+    /**
+     * Sisipkan banyak baris sekaligus, dengan ID APA ADANYA. Dipakai HANYA oleh
+     * fitur Undo/Redo untuk memulihkan potret sebuah program.
+     *
+     * PELAJARAN HARI INI: kenapa ini bisa "menghidupkan kembali" baris yang tadi
+     * dihapus dengan id yang sama persis.
+     *
+     * `@Insert` di Room punya satu perilaku halus tapi penting soal primary key
+     * yang `autoGenerate = true`: kalau `id` baris bernilai 0, Room menyerahkan
+     * penomoran ke SQLite (lahir id baru). TAPI kalau `id`-nya sudah berisi angka
+     * asli (bukan 0), Room menyisipkan dengan angka ITU apa adanya. Potret undo
+     * kita menyimpan baris LENGKAP dengan id aslinya, jadi saat dipulihkan, baris
+     * yang tadi dihapus kembali dengan identitas yang sama -- bukan kembar ber-id
+     * baru. Itu sebabnya undo sebuah "hapus" benar-benar mengembalikan yang hilang.
+     *
+     * Aman dari tabrakan id karena `pulihkan()` selalu memanggil
+     * `hapusSemuaDiProgram()` DULU di dalam transaksi yang sama: meja dikosongkan
+     * sebelum ditata ulang, jadi tak ada dua baris berebut id yang sama.
+     */
+    @Insert
+    suspend fun insertSemua(refs: List<ProgramExerciseRef>)
+
     @Update
     suspend fun update(ref: ProgramExerciseRef)
 
